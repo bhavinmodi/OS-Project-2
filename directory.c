@@ -176,6 +176,7 @@ int sendAck(int sock)
 	int ackValue = 1;
 
 	if(send(sock, &ackValue, sizeof(int), 0) > 0){
+		puts("Ack Sent");
 		return 1;
 	}else{
 		return -1;
@@ -204,6 +205,29 @@ int waitForAck(int sock){
 	}
 
 	return 1;
+}
+
+int sendInt(int sock, int a){
+	int ackValue;
+
+	if(send(sock , &a , sizeof(int) , 0) < 0){
+		puts("Send Failed");
+		return -1;
+	}
+	while(1){
+		if(recv(sock , &ackValue , sizeof(int),0) < 0){
+			puts("Send Failed");
+			return -1;
+		}else{
+			if(ackValue == 1){
+				puts("Got Ack");
+				return 1;
+			}else{
+				puts("Send Failed");
+				return -1;
+			}
+		}
+	}
 }
 
 int registerServer(int sock, int ipArr[], int port){
@@ -236,7 +260,6 @@ int deRegisterServer(int ipArr[]){
 
 int runClientSetup(int sock){
 	//Look for the server with the requested service
-	int statusOfRead, programID, version, statusOfSend;
 
 	//Find the server and send the IP and Port to the client
 	struct serverNode *ptr = scanListClient();
@@ -244,8 +267,7 @@ int runClientSetup(int sock){
 	if(ptr == NULL){
 		//Send Server not Found
 		requestResult = 0;
-		statusOfSend = send(sock, &requestResult, sizeof(requestResult), 0);
-		if(statusOfSend < 0){
+		if(send(sock, &requestResult, sizeof(requestResult), 0) < 0){
 			puts("Send Query result Failed");
 			return -1;
 		}
@@ -253,13 +275,15 @@ int runClientSetup(int sock){
 		puts("No Server Found");
 		return -1;
 	}else{
+
 		//Send Server Found
 		requestResult = 1;
-		statusOfSend = send(sock, &requestResult, sizeof(requestResult), 0);
-		if(statusOfSend < 0){
+		if(send(sock, &requestResult, sizeof(requestResult), 0) < 0){
 			puts("Send Query result Failed");
 			return -1;
 		}
+
+		printf("Result Sent = %d\n",requestResult);
 
 		//Wait for ACK
 		if(waitForAck(sock) < 0){
@@ -268,11 +292,12 @@ int runClientSetup(int sock){
 		}
 
 		//Send the IP and Port
-		statusOfSend = send(sock, ptr->ip, sizeof(int)*4, 0);
-		if(statusOfSend < 0){
+		if(send(sock, ptr->ip, sizeof(int)*4, 0) < 0){
 			puts("Send IP Failed");
 			return -1;
 		}
+
+		puts("IP sent");
 
 		//Wait for ACK
 		if(waitForAck(sock) < 0){
@@ -281,11 +306,12 @@ int runClientSetup(int sock){
 		}
 
 		//Send Port number
-		statusOfSend = send(sock, &ptr->port, sizeof(int), 0);
-		if(statusOfSend < 0){
+		if(sendInt(sock, ptr->port) < 0){
 			puts("Send Port Failed");
 			return -1;
 		}
+
+		puts("Port Sent");
 	}
 
 	//Successful
@@ -392,7 +418,7 @@ int runServerSetup(int sock, int ipArr[]){
 void *connection_handler(void *args)
 {
 	//check whether client or server
-	int type, statusOfRead, sock, i;
+	int type, sock, i;
 	int ipArr[4];
 	threadArgs *initArgs = args;
 
@@ -401,14 +427,11 @@ void *connection_handler(void *args)
 	sock = initArgs->sock;
 	for(i = 0; i < 4; i++){
 		ipArr[i] = initArgs->ip[i];
-		//TODO: Del test statement
-		printf("%d",ipArr[i]);
 	}
 
 	puts("Connection Started");
 	while(1){
-		statusOfRead = recv(sock , &type , sizeof(type) , 0);
-		if(statusOfRead > 0){
+		if(recv(sock , &type , sizeof(type) , 0) > 0){
 			break;
 		}else{
 			puts("Received Failed - Connection Terminated");
@@ -416,7 +439,7 @@ void *connection_handler(void *args)
 		}
 	}
 
-	puts("Got Type Client/Server");
+	printf("Got Type Client/Server = %d\n", type);
 
 	//Send Ack, to be ready fo next message
 	if(sendAck(sock) < 0){
@@ -428,6 +451,7 @@ void *connection_handler(void *args)
 
 	switch(type){
 		case 0:
+			puts("Calling Client");
 			//Call client
 			if(runClientSetup(sock) < 0){
 				puts("Lookup Failure - Connection Terminated");
