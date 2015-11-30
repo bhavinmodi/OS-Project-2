@@ -175,9 +175,14 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 
 	// Entire file path
 	char wholePath[200];
-	strcpy(wholePath, path);
-	strcat(wholePath, "\\");
-	strcat(wholePath, fileName);
+
+	if(strcmp(fileName, "empty") == 0){
+		strcpy(wholePath, path);
+	}else{
+		strcpy(wholePath, path);
+		strcat(wholePath, "\\");
+		strcat(wholePath, fileName);
+	}
 
 	printf("Whole File Path = %s\n",wholePath);
 
@@ -249,6 +254,7 @@ int clientInput(int sock){
 
 	int choice;
 	char path[100], fileName[100];
+	char keywords[100];
 
 	// Print Menu for selecting Indexing or Search Query
 	printf("Select Job:\n1. Indexing\n2. Search\n3. Exit\nChoice: ");
@@ -330,21 +336,82 @@ int clientInput(int sock){
 				if(S_ISREG(s.st_mode)){
 					puts("Regular File");
 
-					// Send file
+					// Inform the server if there is a file to send
+					if(sendInt(sock, 1) < 0){
+						puts("Sending File present failed");
+						break;
+					}
 
+					//set filename to empty, to indicate the path was a regular file
+					strcpy(fileName, "empty");
+
+					if(sendFileToServer(sock, path, fileName) < 0){
+						printf("%s : Send Failed\n",fileName);
+						break;
+					}else{
+						printf("%s : Sent\n",fileName);
+					}
+
+					// Inform the server there are no more files to send
+					if(sendInt(sock, -1) < 0){
+						puts("Sending File not present failed");
+					}
 				}else{
 					puts("Invalid Path");
+
+					// Inform the server there are no more files to send
+					if(sendInt(sock, -1) < 0){
+						puts("Sending File not present failed");
+					}
 				}
 			}
 		}else{
 			puts("Failed to determine directory or file");
+			// Inform the server there are no more files to send
+			if(sendInt(sock, -1) < 0){
+				puts("Sending File not present failed");
+			}
 		}
 
 		break;
 	}
 	case 2:
+	{
+		//Step 1 : Inform the server of the type of request
+		if(sendInt(sock, 2) < 0){
+			puts("Search Request Failed : Send request type failed");
+			return -1;
+		}
+
 		// Search
+		puts("Enter the keywords for searching:");
+
+		//flushing the input stream
+		int c;
+		while((c = getchar()) != '\n' && c != EOF);
+
+		fgets(keywords, 100, stdin);
+
+		//Remove the \n char for the keyword string
+		int index;
+		for(index = 0; index < 100; index++){
+			if(keywords[index] == '\n'){
+				keywords[index] = '\0';
+				break;
+			}
+		}
+
+		// Send the string across
+		if(send(sock , &keywords[0] , sizeof(char)*100 , 0) < 0){
+			puts("Sending keywords failed");
+			return -1;
+		}
+
+		if(waitForAck(sock) < 0){
+			return -1;
+		}
 		break;
+	}
 	case 3:
 		//Exit
 		return -1;
@@ -369,7 +436,6 @@ int main(){
 
 	if(getServerFromDirectory(&ip[0], &port) < 0){
 		printf("Server Not Found");
-		getchar();
 		return 1;
 	}
 

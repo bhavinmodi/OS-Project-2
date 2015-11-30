@@ -15,8 +15,8 @@
 #include<string.h>
 
 // Worker Directory address
-#define directoryIP "127.0.0.1"
-#define directoryPort 8000
+#define WorkerDirectoryIP "127.0.0.2"
+#define WorkerDirectoryPort 8010
 
 typedef struct{
 	int sock;
@@ -93,7 +93,7 @@ int scanListServerR(int ipArr[], int port){
 	}
 }
 
-int scanListServerDR(int ipArr[]){
+int scanListWorkerDR(int ipArr[], int port){
 
 	struct serverNode *ptr = head;
 	struct serverNode *follow = head;
@@ -101,33 +101,29 @@ int scanListServerDR(int ipArr[]){
 	int nodeFound = 0, i, temp = 0;
 
 	while(ptr != NULL){
-		//check IP
-		int noMatch = 0;
-		for(i = 0; i < 4; i++){
-			if(ptr->ip[i] != ipArr[i]){
-				noMatch = 1;
+		//Check match for port
+		if(ptr->port == port){
+			//check IP
+			int noMatch = 0;
+			for(i = 0; i < 4; i++){
+				if(ptr->ip[i] != ipArr[i]){
+					noMatch = 1;
+				}
 			}
-		}
+			if(noMatch == 0){
+				//Match Found
+				nodeFound = 1;
 
-		printf("Quick printing ip \n");
-		for(i = 0; i < 4; i++){
-			printf("ip[%d] = %d\n",i,ptr->ip[i]);
-			printf("ipArr[%d] = %d\n",i,ipArr[i]);
-		}
-
-		if(noMatch == 0){
-			//Match Found
-			nodeFound = 1;
-
-			//Delete Node
-			if(ptr == head){
-				head = NULL;
-				free(ptr);
-			}else{
-				follow->next = ptr->next;
-				free(ptr);
+				//Delete Node
+				if(ptr == head){
+					head = NULL;
+					free(ptr);
+				}else{
+					follow->next = ptr->next;
+					free(ptr);
+				}
+				break;
 			}
-			break;
 		}
 
 		if(temp == 0){
@@ -140,22 +136,22 @@ int scanListServerDR(int ipArr[]){
 	}
 
 	if(nodeFound == 1){
-		puts("Server Deregistered");
+		puts("Worker Deregistered");
 		return 1;
 	}else{
-		puts("Server Not Registered");
+		puts("Worker Not Registered");
 		return -1;
 	}
 }
 
-struct serverNode* scanListClient(){
+struct serverNode* scanListWorker(){
 
 	int minLoad = -1;
 	struct serverNode *ptr = head;
 	struct serverNode *result = NULL;
 
 	if(ptr == NULL){
-		puts("No Server Found In List");
+		puts("No Worker Found In List");
 		return NULL;
 	}
 
@@ -174,7 +170,7 @@ struct serverNode* scanListClient(){
 		ptr = ptr->next;
 	}
 
-	// Increase load counter for server
+	// Increase load counter for worker
 	if(result != NULL){
 		int temp = result->load;
 		temp = temp + 1;
@@ -243,34 +239,26 @@ int sendInt(int sock, int a){
 	}
 }
 
-int registerServer(int sock, int ipArr[], int port){
+int registerWorker(int ipArr[], int port){
 	//Register the server and Check for duplicate
-
-	int i = 0;
-	printf("Quick printing ip \n");
-	for(i = 0; i < 4; i++){
-		//printf("ip[%d] = %d\n",i,ptr->ip[i]);
-		printf("Register : ipArr[%d] = %d\n",i,ipArr[i]);
-	}
-
 	if(scanListServerR(ipArr, port) < 0){
 		puts("Duplicate: Existing IP and Port Address");
 		return -1;
 	}else{
 		if(addToList(ipArr, port) < 0){
-			puts("Creating Sever Node Failed");
+			puts("Creating Worker Node Failed");
 			return -1;
 		}
 	}
 
 	//Successful
-	puts("Server Registered");
+	puts("Worker Registered");
 	return 1;
 }
 
-int deRegisterServer(int ipArr[]){
-	//Deregister Server
-	if(scanListServerDR(ipArr) < 0){
+int deRegisterWorker(int ipArr[], int port){
+	//Deregister Worker
+	if(scanListWorkerDR(ipArr, port) < 0){
 		puts("Deregister Failed");
 		return -1;
 	}else{
@@ -279,11 +267,11 @@ int deRegisterServer(int ipArr[]){
 	}
 }
 
-int runClientSetup(int sock){
-	//Look for the server with the requested service
+int runWorkerLookup(int sock){
+	//Look for the worker with least load
 
-	//Find the server and send the IP and Port to the client
-	struct serverNode *ptr = scanListClient();
+	//Find the worker and send the IP and Port to the tiny google server
+	struct serverNode *ptr = scanListWorker();
 	int requestResult;
 	if(ptr == NULL){
 		//Send Server not Found
@@ -293,7 +281,7 @@ int runClientSetup(int sock){
 			return -1;
 		}
 
-		puts("No Server Found");
+		puts("No Worker Found");
 		return -1;
 	}else{
 
@@ -336,11 +324,11 @@ int runClientSetup(int sock){
 	}
 
 	//Successful
-	puts("Client got server");
+	puts("Server got Worker");
 	return 1;
 }
 
-int runServerSetup(int sock, int ipArr[]){
+int runWorkerSetup(int sock, int ipArr[]){
 	//Get Server and the Service to Register/Deregister
 	int requestType, statusOfRead, statusOfSend, port;
 
@@ -350,7 +338,7 @@ int runServerSetup(int sock, int ipArr[]){
 		if(statusOfRead > 0){
 			break;
 		}else{
-			puts("Error receiving register/deregister request type");
+			puts("Error receiving register/deregister worker request type");
 			return -1;
 		}
 	}
@@ -369,7 +357,26 @@ int runServerSetup(int sock, int ipArr[]){
 	//Now switch based on Request Type
 	switch(requestType){
 		case 0:
-			if(deRegisterServer(ipArr) < 0){
+			puts("Deregister : Waiting for port");
+
+			//Wait for Port
+			while(1){
+				statusOfRead = recv(sock , &port , sizeof(port) , 0);
+				if(statusOfRead > 0){
+					break;
+				}else{
+					puts("Deregister : Error receiving port number");
+					return -1;
+				}
+			}
+
+			//Send Ack, to be ready fo next message
+			if(sendAck(sock) < 0){
+				puts("Sending Ack Failed");
+				return -1;
+			}
+
+			if(deRegisterWorker(ipArr, port) < 0){
 				processStatus = 0;
 				statusOfSend = send(sock, &processStatus, sizeof(processStatus), 0);
 				if(statusOfSend < 0){
@@ -387,7 +394,7 @@ int runServerSetup(int sock, int ipArr[]){
 			}
 		break;
 		case 1:
-			puts("Waiting for port");
+			puts("Register : Waiting for port");
 
 			//Wait for Port
 			while(1){
@@ -395,7 +402,7 @@ int runServerSetup(int sock, int ipArr[]){
 				if(statusOfRead > 0){
 					break;
 				}else{
-					puts("Error receiving port number");
+					puts("Register : Error receiving port number");
 					return -1;
 				}
 			}
@@ -406,7 +413,7 @@ int runServerSetup(int sock, int ipArr[]){
 				return -1;
 			}
 
-			if(registerServer(sock, ipArr, port) < 0){
+			if(registerWorker(ipArr, port) < 0){
 				processStatus = 0;
 				statusOfSend = send(sock, &processStatus, sizeof(processStatus), 0);
 				if(statusOfSend < 0){
@@ -424,8 +431,11 @@ int runServerSetup(int sock, int ipArr[]){
 				}
 			}
 		break;
+		case 2:
+			// Unload the server after the operation
+			break;
 		default:
-			puts("Invalid Server Request");
+			puts("Invalid Worker Directory Request");
 			return -1;
 	}
 
@@ -448,7 +458,6 @@ void *connection_handler(void *args)
 	sock = initArgs->sock;
 	for(i = 0; i < 4; i++){
 		ipArr[i] = initArgs->ip[i];
-		printf("ipArr[%d] = %d\n",i,ipArr[i]);
 	}
 
 	puts("Connection Started");
@@ -461,7 +470,7 @@ void *connection_handler(void *args)
 		}
 	}
 
-	printf("Got Type Client/Server = %d\n", type);
+	printf("Got Type Worker/Server = %d\n", type);
 
 	//Send Ack, to be ready for next message
 	if(sendAck(sock) < 0){
@@ -473,9 +482,9 @@ void *connection_handler(void *args)
 
 	switch(type){
 		case 0:
-			puts("Calling Client");
-			//Call client
-			if(runClientSetup(sock) < 0){
+			puts("Calling Worker Lookup");
+			//Call Worker Lookup
+			if(runWorkerLookup(sock) < 0){
 				puts("Lookup Failure - Connection Terminated");
 			}
 			//Free the socket pointer
@@ -483,9 +492,9 @@ void *connection_handler(void *args)
 			return 0;
 		break;
 		case 1:
-			puts("Calling Server");
-			//Call Server
-			if(runServerSetup(sock, ipArr) < 0){
+			puts("Calling Worker Setup");
+			//Call Worker setup
+			if(runWorkerSetup(sock, ipArr) < 0){
 				puts("Register/Unregister Failure - Connection Terminated");
 			}
 			//Free the socket pointer
@@ -519,12 +528,12 @@ int main(){
     {
         puts("Could not create socket");
     }
-    puts("Directory Service Socket created");
+    puts("Worker Directory Service Socket created");
 
     //Prepare the sockaddr_in structure
     directory.sin_family = AF_INET;
-    directory.sin_addr.s_addr = inet_addr(directoryIP);
-    directory.sin_port = htons(directoryPort);
+    directory.sin_addr.s_addr = inet_addr(WorkerDirectoryIP);
+    directory.sin_port = htons(WorkerDirectoryPort);
 
     //Bind
     if( bind(socket_desc,(struct sockaddr *)&directory , sizeof(directory)) < 0)
@@ -549,7 +558,7 @@ int main(){
 		//Initialize argument structure
 		threadArgs *args = malloc(sizeof *args);
 
-		//Get IP Address of Server/Client
+		//Get IP Address of Worker / Tiny Google Server
 	  	sprintf(address, "%s", inet_ntoa(client.sin_addr));
 		token = strtok(address, delim);
 		i = 0;
