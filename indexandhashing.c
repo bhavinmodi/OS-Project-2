@@ -5,10 +5,14 @@
 #include <stdio.h>
 #include <string.h>
 
+
+//BUG : SHALLOW COPY]
+
+
 struct my_struct {
-    char wordBeingHashed[50];             /* key (string is WITHIN the structure) */
-    char docName[50][50];
-    int noOfTimes[50];
+    char* wordBeingHashed;             /* key (string is WITHIN the structure) */
+    char** docName;
+    int* noOfTimes;
     int noOfHits;
     UT_hash_handle hh;         /* makes this structure hashable */
 };
@@ -20,14 +24,48 @@ char currDocNo=-1;
 struct my_struct *arrayOfStructs[50];
 int arrayOfStructsCounter=0;
 
-/*
-struct my_struct* copyStruct(struct my_struct *source, struct my_struct *dest)
+
+struct my_struct* createStruct()
 {
-	printf("Inside copy function \n");
-	dest = source;	
+	struct my_struct *dest;
+	dest = (struct my_struct*)malloc(sizeof(struct my_struct));
+	
+	dest->wordBeingHashed = (char*)malloc(sizeof(char)*50);
+	//dest->wordBeingHashed = malloc(sizeof(*dest->wordBeingHashed));
+	dest->noOfTimes = malloc(sizeof(int)*50);
+	//dest->noOfHits = (int)malloc(sizeof(int));
+	
+	dest->docName= (char**) malloc(50 *sizeof(char*));
+	int k;
+	for(k=0;k<50;k++)
+	{
+		dest->docName[k] = (char*)malloc(sizeof(char)*50);
+	}
+	
 	return dest;
 }
-*/
+
+struct my_struct* createCopyStruct(struct my_struct *source, struct my_struct *dest)
+{
+	dest = createStruct();
+	
+	//writing code to manually copy all info from source to dest
+	strncpy(dest->wordBeingHashed,source->wordBeingHashed,50);
+	dest->noOfHits = source->noOfHits;
+	
+	int k;
+	for(k=0;k<=dest->noOfHits;k++)
+	{
+		strncpy(dest->docName[k],source->docName[k],50);
+		dest->noOfTimes[k] = source->noOfTimes[k];
+	}
+	
+	//dest = source;	
+	return dest;
+}
+
+
+
 
 int checkForSymbols(char c)
 {
@@ -76,8 +114,13 @@ void hashWord(char c[], int noOfOccurences)
 	{
 	//printf("Single id found and name is %s \n",*n);
 	//printf("Checkpoint 2 \n");
-	s = (struct my_struct*)malloc(sizeof(struct my_struct));
+	//s = (struct my_struct*)malloc(sizeof(struct my_struct));
+	s = createStruct();
+	//printf("Checjkdlfjlkdsfjlkdsfj \n");
+	//printf("THe val of c is %s and size is %d \n",c,(int)strlen(c));
+	//s->wordBeingHashed = (char*)malloc(sizeof(char)*50);
 	strncpy(s->wordBeingHashed,c,50);
+	//printf("The value for wordbeighashed is %s \n",s->wordBeingHashed);
 	s->noOfHits = 0;
 	s->noOfTimes[s->noOfHits] = noOfOccurences;
 	strncpy(s->docName[s->noOfHits],currDocName,50);
@@ -158,7 +201,7 @@ void findWordInHash(char c[])
     		printf("Docname: %s || Count: %d \n",s->docName[i],s->noOfTimes[i]);    		
     	}
     	
-		arrayOfStructs[arrayOfStructsCounter] = s;
+		arrayOfStructs[arrayOfStructsCounter] = createCopyStruct(s,arrayOfStructs[arrayOfStructsCounter]);
 		arrayOfStructsCounter++;
     	
     }
@@ -167,21 +210,10 @@ void findWordInHash(char c[])
     	
     	printf("Word not found in hash \n");
     	
-    	//adding code here to enter dummy struct pointer to keep results consistent
-    	//TODO FIX THE UNDERLYING COMMENTED CODE
-    	
-    	/*
-    	strncpy(tmp->wordBeingHashed,"DUMMY",50);
-    	printf("Test1 \n");
-    	strncpy(tmp->docName[0],"DEAD",50);
-    	tmp->noOfTimes[0]=0;
-    	tmp->noOfHits=0;
-    	
-    	arrayOfStructs[arrayOfStructsCounter] = tmp;
+		tmp = createStruct();
+		strncpy(tmp->wordBeingHashed,c,50);
+		arrayOfStructs[arrayOfStructsCounter] = tmp;
 		arrayOfStructsCounter++;
-		
-		printf("End of adding dummy struct \n");
-		*/
     	
     }
 }
@@ -339,17 +371,11 @@ int sendFileToHash(char filename[])
     return 1;
 }
 
-int main()
+int findNWords(int noOfWords)
 {
-	//TODO : Remember to make function that asks how many words to search and initializes arrayOfStructsCounter=0 before "full search"
+	int counter=0;
+	arrayOfStructsCounter=0;
 	
-	int statusOfSend;
-	statusOfSend = sendFileToHash("file.txt");
-	statusOfSend = sendFileToHash("1.txt");
-	statusOfSend = sendFileToHash("2.txt");
-	statusOfSend = sendFileToHash("3.txt");
-	
-	int rcount=0;
 	while(1)
 	{
 	printf("Please enter the word to find\n");
@@ -357,13 +383,34 @@ int main()
 	scanf("%s",inputWord);
 	
 	findWordInHash(inputWord);
-	rcount++;
+	counter++;
 	
-	if(rcount==3)
-	break;
+	if(counter==noOfWords)
+		break;
 	}
+}
+
+int main()
+{
 	
-	computeDocIntersection();
+	int statusOfSend;
+	statusOfSend = sendFileToHash("file.txt");
+	statusOfSend = sendFileToHash("1.txt");
+	statusOfSend = sendFileToHash("2.txt");
+	statusOfSend = sendFileToHash("3.txt");	
+	
+	while(1)
+	{
+		printf("Please enter the number of words to search for or enter -1 to exit \n");
+		int noOfWords;
+		scanf("%d",&noOfWords);
+		if(noOfWords==-1)
+			break;
+		else
+			findNWords(noOfWords);
+	
+		computeDocIntersection();
+	}
 	
 	return 0;
 }
