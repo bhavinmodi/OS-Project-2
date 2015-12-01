@@ -130,6 +130,44 @@ void hashWord(char c[], int noOfOccurences)
 
 }
 
+void sortAllArrayStructs()
+{
+	char tempstr[50];
+	int tmpint;
+	
+	int i;
+	for(i=0; i<arrayOfStructsCounter; i++)
+	{
+		//printf("Value of i is %d and value of structscounter is %d \n",i,arrayOfStructsCounter);
+		// printf("Word being hashed is %s \n",arrayOfStructs[i]->wordBeingHashed);
+		// printf("No of hits is %d \n",arrayOfStructs[i]->noOfHits);
+		int secondLoopLimit = arrayOfStructs[i]->noOfHits;
+		int j;
+		for(j=0;j<=secondLoopLimit; j++)
+		{
+			int k;
+			for(k=j; k<=secondLoopLimit; k++)
+			{
+				// printf("We are now comparing %d < %d where j and k are %d and %d\n",arrayOfStructs[i]->noOfTimes[j],arrayOfStructs[i]->noOfTimes[k],j,k);
+				if(arrayOfStructs[i]->noOfTimes[j]<arrayOfStructs[i]->noOfTimes[k])
+				{
+					// printf("It is lesser \n");
+					strncpy(tempstr,arrayOfStructs[i]->docName[j],50);
+					tmpint = arrayOfStructs[i]->noOfTimes[j];
+					
+					strncpy(arrayOfStructs[i]->docName[j],arrayOfStructs[i]->docName[k],50);
+					strncpy(arrayOfStructs[i]->docName[k],tempstr,50);
+					
+					arrayOfStructs[i]->noOfTimes[j]=arrayOfStructs[i]->noOfTimes[k];
+					arrayOfStructs[i]->noOfTimes[k]=tmpint;
+					
+				}
+			}
+		}
+		
+	}
+}
+
 void computeDocIntersection()
 {
 	if(arrayOfStructsCounter==0)
@@ -169,6 +207,7 @@ void computeDocIntersection()
 		}
 	}
 
+	sortAllArrayStructs();
 	
 	//displaying final result
 	printf("Final Result \n");
@@ -202,7 +241,9 @@ void findWordInHash(char c[])
     	}
     	
 		arrayOfStructs[arrayOfStructsCounter] = createCopyStruct(s,arrayOfStructs[arrayOfStructsCounter]);
+		// printf("Structs counter incremented \n");
 		arrayOfStructsCounter++;
+		// printf("Value of structs counter is %d \n",arrayOfStructsCounter);
     	
     }
     else
