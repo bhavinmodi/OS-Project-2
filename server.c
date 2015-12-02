@@ -19,13 +19,13 @@
 #include <netinet/in.h>
 #include <net/if.h>
 
-// Client Directory address
-#define ServerDirectoryIP "127.0.0.1"
-#define ServerDirectoryPort 8000
-
 // Server Directory address
+#define ServerDirectoryIP "127.0.0.1"
+#define ServerDirectoryPort 8001
+
+// server address
 #define ServerIP "127.0.0.1"
-#define ServerPort 8888
+#define ServerPort 8011
 
 // MUTEX LOCK
 int mutex = 0;
@@ -115,7 +115,6 @@ int registerWithDirService()
 {
 	// Register the server with the directory service
 	int sock;
-	struct sockaddr_in server;
 
 	//Create socket
 	sock = socket(AF_INET , SOCK_STREAM , 0);
@@ -126,20 +125,29 @@ int registerWithDirService()
 	}
 	puts("Socket created");
 
+	// Bind the server to its own socket before connecting,
+	//Bind to a specific network interface (and optionally a specific local port)
+	struct sockaddr_in localaddr;
+	localaddr.sin_family = AF_INET;
+	localaddr.sin_addr.s_addr = inet_addr(ServerIP);
+	localaddr.sin_port = ServerPort;
+	bind(sock, (struct sockaddr *)&localaddr, sizeof(localaddr));
+
 	//below should contain the ip address of the Directory Service
+	struct sockaddr_in server;
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
 	server.sin_port = htons(ServerDirectoryPort);
 
-	//Connect to Server
+	//Connect to Directory
 	puts("Trying to connect");
 	int connected = -1;
 	while(connected == -1){
-		//Connect to remote server
+		//Connect to client Directory
 		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
 	}
 
-	//Connected to server
+	//Connected to Directory
 	puts("Connected \n");
 
 	//we first send '1' to the Dir Service which shows it that we are a server
@@ -184,7 +192,6 @@ int deregisterWithDirService()
 {
 	/// Deregister the server with the directory service
 	int sock;
-	struct sockaddr_in server;
 
 	//Create socket
 	sock = socket(AF_INET , SOCK_STREAM , 0);
@@ -195,7 +202,16 @@ int deregisterWithDirService()
 	}
 	puts("Socket created");
 
-	//below should contain the ip address of the Directory Service
+	// Bind the server to its own socket before connecting,
+	//Bind to a specific network interface (and optionally a specific local port)
+	struct sockaddr_in localaddr;
+	localaddr.sin_family = AF_INET;
+	localaddr.sin_addr.s_addr = inet_addr(ServerIP);
+	localaddr.sin_port = ServerPort;
+	bind(sock, (struct sockaddr *)&localaddr, sizeof(localaddr));
+
+	// Below should contain the ip address of the Directory Service
+	struct sockaddr_in server;
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
 	server.sin_port = htons(ServerDirectoryPort);
@@ -227,7 +243,11 @@ int deregisterWithDirService()
 		return -1;
 	}
 
-	puts("0 for deregister, successful");
+	// Send port
+	if(sendInt(sock, ServerPort) < 0){
+		puts("Sending port for deregistration failed");
+		return -1;
+	}
 
 	int deregistrationStatus = 0;
 	if(readInt(sock, &deregistrationStatus) < 0){
@@ -394,36 +414,36 @@ int getWorkerFromDirectory(char fileName[100], int op){
 	    }
 	    puts("Socket created");
 
-		//Connect to Directory Register and get ip and port for service
+		// Connect to Worker Directory Register and get ip and port for service
 		server.sin_addr.s_addr = inet_addr("127.0.0.2");
 	    server.sin_family = AF_INET;
 	    server.sin_port = htons( 8010 );
 
-		//Connect to Directory Service
-		puts("Trying to connect to Directory Service");
+		// Connect to Worker Directory Service
+		puts("Trying to connect to Worker Directory Service");
 		int connected = -1;
 		while(connected == -1){
 	    	connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
 		}
 
-		//Connected to Directory Service
-	    puts("Connected");
+		// Connected to Worker Directory Service
+	    puts("Connected to Worker Directory");
 
-		//Let Directory know you are the client
+		//Let Worker Directory know you are the server
 		if(sendInt(sock, 0) < 0){
-			puts("Send connector type client failed");
+			puts("Send connector type Server failed");
 			close(sock);
 			return -1;
 		}
 
-		//Get Status of Server Found or Not
+		//Get Status of Worker Found or Not
 		if(readInt(sock, &result) < 0){
 			puts("Receive Query Result failed");
 			close(sock);
 			return -1;
 		}else{
 			if(result == 0){
-				puts("Server Not Found");
+				puts("Worker Not Found");
 				close(sock);
 				return -1;
 			}
@@ -453,7 +473,7 @@ int getWorkerFromDirectory(char fileName[100], int op){
 		}
 
 		//Successful
-		//Close connection to Directory Service
+		//Close connection to Worker Directory Service
 		close(sock);
 
 		//Convert ip to string
@@ -486,7 +506,7 @@ int getWorkerFromDirectory(char fileName[100], int op){
 		}
 
 		//Connected to Remote Worker
-		puts("Connected");
+		puts("Remote Worker Connected");
 
 		// call function depending on Op
 		switch(op){
@@ -586,7 +606,9 @@ int startIndexing(int sock){
 				}
 			}
 
-			bytesRead = bytesRead + 1024;
+			//printf("Length of buffer read for file = %d\n",strlen(buffer));
+			// Add bytes read from length of buffer
+			bytesRead = bytesRead + strlen(buffer);
 		}
 
 		if(sendAck(sock) < 0){

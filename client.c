@@ -10,10 +10,15 @@
 #include<stdio.h>
 #include<unistd.h>
 #include<stdlib.h>
+#include<time.h>
 #include<sys/types.h>
 #include<sys/stat.h>
 #include<string.h>
 #include<dirent.h>
+
+// Server Directory address
+#define ServerDirectoryIP "127.0.0.1"
+#define ServerDirectoryPort 8001
 
 int sendAck(int sock)
 {
@@ -108,9 +113,9 @@ int getServerFromDirectory(int *ip, int *port){
 	    puts("Socket created");
 
 		//Connect to Directory Register and get ip and port for service
-		server.sin_addr.s_addr = inet_addr("127.0.0.1");
+		server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
 	    server.sin_family = AF_INET;
-	    server.sin_port = htons( 8000 );
+	    server.sin_port = htons(ServerDirectoryPort);
 
 		//Connect to Directory Service
 		puts("Trying to connect to Directory Service");
@@ -124,6 +129,13 @@ int getServerFromDirectory(int *ip, int *port){
 
 		//Let Directory know you are the client
 		if(sendInt(sock, 0) < 0){
+			puts("Send connector type client failed");
+			close(sock);
+			return -1;
+		}
+
+		// Tell the directory there the reason for connecting
+		if(sendInt(sock, 1) < 1){
 			puts("Send connector type client failed");
 			close(sock);
 			return -1;
@@ -169,6 +181,108 @@ int getServerFromDirectory(int *ip, int *port){
 		//Close connection to Directory Service
 		close(sock);
 		return 1;
+}
+
+int informDirectoryServerMaybeAbsent(){
+	// Initialize variables
+	int sock;
+	struct sockaddr_in server;
+
+	// Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1)
+	{
+		puts("Could not create socket");
+		return -1;
+	}
+	puts("Socket created");
+
+	//Connect to Directory Register and get ip and port for service
+	server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
+	server.sin_family = AF_INET;
+	server.sin_port = htons(ServerDirectoryPort);
+
+	//Connect to Directory Service
+	puts("Trying to connect to Directory Service");
+	int connected = 1;
+	while(connected == 1){
+		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	}
+
+	if(connected == 0){
+		//Connected to Directory Service
+		puts("Connected");
+	}else{
+		puts("Server Directory Connection failed");
+		return -1;
+	}
+
+	//Let Directory know you are the client
+	if(sendInt(sock, 0) < 0){
+		puts("Send connector type client failed");
+		close(sock);
+		return -1;
+	}
+
+	// Tell the directory there is problem connecting to the server
+	if(sendInt(sock, 0) < 1){
+		puts("Send connector type client failed");
+		close(sock);
+		return -1;
+	}
+
+	//Close connection to Directory Service
+	close(sock);
+	return 1;
+}
+
+int connectToServer(int ip[], int port){
+	int sock;
+	struct sockaddr_in server;
+
+	//Convert ip to string
+	char address[50];
+	sprintf(address, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+
+	//Trim the char array
+	printf("The address we have is %s \n",address);
+
+	//Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1)
+	{
+		puts("Could not create socket");
+		return -1;
+	}
+	puts("Socket created");
+
+	//Now setup Server connection
+	server.sin_addr.s_addr = inet_addr(address);
+	//server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+	printf("Port it is trying to connect to is %d \n",port);
+
+	//Connect to Remote Server
+	puts("Trying to connect to Remote Server");
+	int connected = 1;
+	while(connected == 1){
+		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	}
+
+	if(connected == 0){
+		//Connected to Remote Server
+		puts("Connected");
+		return sock;
+	}else{
+		printf("Connection Failed : Return Value %d\n",connected);
+
+		// Let the directory know that the server is not available
+		informDirectoryServerMaybeAbsent();
+
+		return -1;
+	}
+
 }
 
 int sendFileToServer(int sock, char path[100], char fileName[100]){
@@ -231,7 +345,7 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 
 	// Read file
 	while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
-		//Sending 1 KB of the file
+		//Sending maximum 1 KB of the file (Can be less depending of bytes in the line)
 		if(send(sock , &fileContents , sizeof(char)*1024 , 0) < 0){
 			puts("Send Failed");
 			return -1;
@@ -425,62 +539,79 @@ int clientInput(int sock){
 	return 1;
 }
 
-int main(){
-
-	int sock;
-    struct sockaddr_in server;
+int startRetryMode(){
+	// Connection to the server failed, most likely it is down
 
 	//Send Lookup Request
 	int ip[4];
 	int port;
 
-	if(getServerFromDirectory(&ip[0], &port) < 0){
-		printf("Server Not Found");
-		return 1;
-	}
-
-	//Convert ip to string
-	char address[50];
-	sprintf(address, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
-
-	//Trim the char array
-	printf("The address we have is %s \n",address);
-
-	//Create socket
-    sock = socket(AF_INET , SOCK_STREAM , 0);
-    if (sock == -1)
-    {
-        puts("Could not create socket");
-		return 1;
-    }
-    puts("Socket created");
-
-	//Now setup Server connection
-	server.sin_addr.s_addr = inet_addr(address);
-	//server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_family = AF_INET;
-    server.sin_port = htons( port );
-    printf("Port it is trying to connect to is %d \n",port);
-
-	//Connect to Remote Server
-	puts("Trying to connect to Remote Server");
-	int connected = -1;
-	while(connected == -1){
-    	connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
-	}
-
-	//Connected to Remote Server
-    puts("Connected");
-
+	// Get a new server
 	while(1){
-		if(clientInput(sock) < 0){
+		if(getServerFromDirectory(&ip[0], &port) < 0){
+			printf("No Server Found");
+			// Try again after 1 minute
+			time_t startTime = time(NULL); // return current time in seconds
+			while (time(NULL) - startTime < 60) {
+			   // Wait
+			}
+		}else{
 			break;
 		}
 	}
 
-	puts("Connection terminated.");
-	close(sock);
-	return 0;
+	return connectToServer(ip, port);
+}
+
+int AskUserToContinue(){
+	// Character used for continue message
+	char response;
+
+	puts("Failed to connect to server");
+
+	int inputAccepted = 0;
+	while(inputAccepted == 0){
+		printf("Continue to keep searching or exit (Y/N)?");
+		scanf(" %c",&response);
+
+		if(response == 'y' || response == 'Y'){
+			return startRetryMode();
+		}else{
+			if(response == 'n' || response == 'N'){
+				return -1;
+			}else{
+				puts("Invalid Choice");
+			}
+		}
+	}
+
+	// If it reaches here, bad input exit
+	return -1;
+}
+
+int main(){
+
+	int sock = startRetryMode();
+
+	if(sock < 0){
+		sock = AskUserToContinue();
+		if(sock < 0){
+			puts("Exiting");
+			return 0;
+		}
+	}
+
+	while(1){
+		if(clientInput(sock) < 0){
+			sock = AskUserToContinue();
+			if(sock < 0){
+				puts("Exiting | Connection terminated");
+				close(sock);
+				return 0;
+			}
+		}
+	}
+
 }
 
 

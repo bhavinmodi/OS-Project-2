@@ -14,9 +14,9 @@
 #include<stdio.h>
 #include<string.h>
 
-// Worker Directory address
+// Client Directory address
 #define directoryIP "127.0.0.1"
-#define directoryPort 8000
+#define directoryPort 8001
 
 typedef struct{
 	int sock;
@@ -93,7 +93,7 @@ int scanListServerR(int ipArr[], int port){
 	}
 }
 
-int scanListServerDR(int ipArr[]){
+int scanListServerDR(int ipArr[], int port){
 
 	struct serverNode *ptr = head;
 	struct serverNode *follow = head;
@@ -101,33 +101,36 @@ int scanListServerDR(int ipArr[]){
 	int nodeFound = 0, i, temp = 0;
 
 	while(ptr != NULL){
-		//check IP
-		int noMatch = 0;
-		for(i = 0; i < 4; i++){
-			if(ptr->ip[i] != ipArr[i]){
-				noMatch = 1;
+		// Check Port
+		if(ptr->port == port){
+			//check IP
+			int noMatch = 0;
+			for(i = 0; i < 4; i++){
+				if(ptr->ip[i] != ipArr[i]){
+					noMatch = 1;
+				}
 			}
-		}
 
-		printf("Quick printing ip \n");
-		for(i = 0; i < 4; i++){
-			printf("ip[%d] = %d\n",i,ptr->ip[i]);
-			printf("ipArr[%d] = %d\n",i,ipArr[i]);
-		}
-
-		if(noMatch == 0){
-			//Match Found
-			nodeFound = 1;
-
-			//Delete Node
-			if(ptr == head){
-				head = NULL;
-				free(ptr);
-			}else{
-				follow->next = ptr->next;
-				free(ptr);
+			printf("Quick printing ip \n");
+			for(i = 0; i < 4; i++){
+				printf("ip[%d] = %d\n",i,ptr->ip[i]);
+				printf("ipArr[%d] = %d\n",i,ipArr[i]);
 			}
-			break;
+
+			if(noMatch == 0){
+				//Match Found
+				nodeFound = 1;
+
+				//Delete Node
+				if(ptr == head){
+					head = NULL;
+					free(ptr);
+				}else{
+					follow->next = ptr->next;
+					free(ptr);
+				}
+				break;
+			}
 		}
 
 		if(temp == 0){
@@ -243,7 +246,25 @@ int sendInt(int sock, int a){
 	}
 }
 
-int registerServer(int sock, int ipArr[], int port){
+int readInt(int sock, int* a){
+	int ackValue =1 ;
+	while(1){
+		if(recv(sock , a , sizeof(int),0) < 0){
+			puts("Receive Failed");
+			return -1;
+		}else{
+			break;
+		}
+	}
+
+	if(send(sock , &ackValue , sizeof(int) , 0) < 0){
+		puts("Receive Failed");
+		return -1;
+	}
+	return 1;
+}
+
+int registerServer(int ipArr[], int port){
 	//Register the server and Check for duplicate
 
 	int i = 0;
@@ -268,15 +289,69 @@ int registerServer(int sock, int ipArr[], int port){
 	return 1;
 }
 
-int deRegisterServer(int ipArr[]){
+int deRegisterServer(int ipArr[], int port){
 	//Deregister Server
-	if(scanListServerDR(ipArr) < 0){
+	if(scanListServerDR(ipArr, port) < 0){
 		puts("Deregister Failed");
 		return -1;
 	}else{
 		puts("Deregister Success");
 		return 1;
 	}
+}
+
+int serverStatus(char ip_addr[], int port){
+	int sock;
+	struct sockaddr_in server;
+
+	//Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1) {
+		puts("Could not create socket");
+		return -1;
+	}
+	puts("Socket created");
+
+	//Now setup Server connection
+	server.sin_addr.s_addr = inet_addr(ip_addr);
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+
+	//Connect to Remote Server
+	puts("Trying to connect to Remote Server");
+	int connected = 1;
+	while(connected == 1){
+		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	}
+
+	if(connected == 0){
+		//Connected to Remote Server
+		puts("Connected");
+		return 1;
+	}else{
+		// server is not available
+		return -1;
+	}
+}
+
+void runServerPing(){
+	struct serverNode *ptr = head;
+
+	while(ptr != NULL){
+
+		// Get IP and Port and Ping the server
+		//Convert ip to string
+		char address[50];
+		sprintf(address, "%d.%d.%d.%d", ptr->ip[0], ptr->ip[1], ptr->ip[2], ptr->ip[3]);
+
+		if(serverStatus(address, ptr->port) < 0) {
+			// Deregister the server
+			scanListServerDR(ptr->ip, ptr->port);
+		}
+
+		ptr = ptr->next;
+	}
+
 }
 
 int runClientSetup(int sock){
@@ -369,7 +444,26 @@ int runServerSetup(int sock, int ipArr[]){
 	//Now switch based on Request Type
 	switch(requestType){
 		case 0:
-			if(deRegisterServer(ipArr) < 0){
+			puts("Waiting for port");
+
+			//Wait for Port
+			while(1){
+				statusOfRead = recv(sock , &port , sizeof(port) , 0);
+				if(statusOfRead > 0){
+					break;
+				}else{
+					puts("Error receiving port number");
+					return -1;
+				}
+			}
+
+			//Send Ack, to be ready fo next message
+			if(sendAck(sock) < 0){
+				puts("Sending Ack Failed");
+				return -1;
+			}
+
+			if(deRegisterServer(ipArr, port) < 0){
 				processStatus = 0;
 				statusOfSend = send(sock, &processStatus, sizeof(processStatus), 0);
 				if(statusOfSend < 0){
@@ -406,7 +500,7 @@ int runServerSetup(int sock, int ipArr[]){
 				return -1;
 			}
 
-			if(registerServer(sock, ipArr, port) < 0){
+			if(registerServer(ipArr, port) < 0){
 				processStatus = 0;
 				statusOfSend = send(sock, &processStatus, sizeof(processStatus), 0);
 				if(statusOfSend < 0){
@@ -435,7 +529,7 @@ int runServerSetup(int sock, int ipArr[]){
 
 /*
  * This will handle connection for each client/server
- * */
+ */
 void *connection_handler(void *args)
 {
 	//check whether client or server
@@ -473,14 +567,35 @@ void *connection_handler(void *args)
 
 	switch(type){
 		case 0:
+		{
 			puts("Calling Client");
-			//Call client
-			if(runClientSetup(sock) < 0){
-				puts("Lookup Failure - Connection Terminated");
+			// Tell type of request
+			int request = -1;
+			if(readInt(sock, &request) < 0){
+				puts("Client : Failed Receiving Request");
 			}
+
+			if(request != -1){
+				if(request == 0){
+					// Call server present ping
+					puts("Client : Server Checker Ping called");
+					runServerPing();
+				}else{
+					if(request == 1){
+						// Call server lookup
+						if(runClientSetup(sock) < 0){
+							puts("Lookup Failure - Connection Terminated");
+						}
+					}else{
+						puts("Client : Invalid Request");
+					}
+				}
+			}
+
 			//Free the socket pointer
 			free(initArgs);
 			return 0;
+		}
 		break;
 		case 1:
 			puts("Calling Server");

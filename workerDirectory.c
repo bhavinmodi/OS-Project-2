@@ -15,8 +15,8 @@
 #include<string.h>
 
 // Worker Directory address
-#define WorkerDirectoryIP "127.0.0.2"
-#define WorkerDirectoryPort 8010
+#define WorkerDirectoryIP "127.0.0.1"
+#define WorkerDirectoryPort 8002
 
 typedef struct{
 	int sock;

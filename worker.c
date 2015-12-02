@@ -19,12 +19,12 @@
 #include <net/if.h>
 
 // Worker Directory address
-#define WorkerDirectoryIP "127.0.0.2"
-#define WorkerDirectoryPort 8010
+#define WorkerDirectoryIP "127.0.0.1"
+#define WorkerDirectoryPort 8002
 
 // Worker Port
 #define WorkerIP "127.0.0.1"
-#define WorkerPort 8001
+#define WorkerPort 8021
 
 //the thread function
 int deRegistered=0;
