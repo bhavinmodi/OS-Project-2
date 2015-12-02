@@ -307,7 +307,7 @@ int startIndexing(int sock){
 			}
 		}
 
-		bytesRead = bytesRead + 1024;
+		bytesRead = bytesRead + strlen(buffer);
 	}
 
 	if(sendAck(sock) < 0){
