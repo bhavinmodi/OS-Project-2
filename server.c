@@ -23,6 +23,10 @@
 #define ServerDirectoryIP "127.0.0.1"
 #define ServerDirectoryPort 8001
 
+// Worker Directory address
+#define WorkerDirectoryIP "127.0.0.1"
+#define WorkerDirectoryPort 8002
+
 // server address
 #define ServerIP "127.0.0.1"
 #define ServerPort 8011
@@ -368,6 +372,15 @@ int sendFileToWorker(int sock, char fileName[100]){
 	// Close file
 	fclose(fp);
 
+	int ret = remove(fileName);
+
+    if(ret == 0) {
+	  printf("File deleted successfully");
+    }else {
+	  printf("Error: unable to delete the file");
+	  return -1;
+    }
+
 	return 1;
 }
 
@@ -415,15 +428,20 @@ int getWorkerFromDirectory(char fileName[100], int op){
 	    puts("Socket created");
 
 		// Connect to Worker Directory Register and get ip and port for service
-		server.sin_addr.s_addr = inet_addr("127.0.0.2");
+		server.sin_addr.s_addr = inet_addr(WorkerDirectoryIP);
 	    server.sin_family = AF_INET;
-	    server.sin_port = htons( 8010 );
+	    server.sin_port = htons(WorkerDirectoryPort);
 
 		// Connect to Worker Directory Service
 		puts("Trying to connect to Worker Directory Service");
-		int connected = -1;
-		while(connected == -1){
+		int connected = 1;
+		while(connected == 1){
 	    	connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+		}
+
+		if(connected < 0){
+			puts("Worker Directory Not Present");
+			return -1;
 		}
 
 		// Connected to Worker Directory Service
@@ -500,9 +518,14 @@ int getWorkerFromDirectory(char fileName[100], int op){
 
 		//Connect to Remote Worker
 		puts("Trying to connect to Remote Worker");
-		connected = -1;
-		while(connected == -1){
+		connected = 1;
+		while(connected == 1){
 			connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+		}
+
+		if(connected < 0){
+			puts("Connection to worker failed");
+			return -1;
 		}
 
 		//Connected to Remote Worker
@@ -606,7 +629,7 @@ int startIndexing(int sock){
 				}
 			}
 
-			//printf("Length of buffer read for file = %d\n",strlen(buffer));
+			printf("Length of buffer read for file = %d\n",strlen(buffer));
 			// Add bytes read from length of buffer
 			bytesRead = bytesRead + strlen(buffer);
 		}
@@ -619,11 +642,13 @@ int startIndexing(int sock){
 		fclose(fp);
 
 		// Ask workerDirectory for worker and send it the file
+		puts("Asking for worker from Worker Directory");
 		if(getWorkerFromDirectory(fileName, 1) < 0){
 			puts("Server Not Found");
 			return -1;
 		}
 
+		//TODO: Wait for index from worker
 	}
 
 	return 1;
@@ -753,7 +778,12 @@ void *connection_handler(void *socket_desc)
 		while(1){
 			//initializing new while to look for choice value
 			if(readInt(sock, &choice) < 0){
-				puts("Receive Choice Failed | Maybe Client disconnected");
+				if(choice == 3){
+					// Ping request Closure
+					puts("Connection closed by directory");
+				}else{
+					puts("Receive Choice Failed | Maybe Client disconnected");
+				}
 				return 0;
 			}else{
 				printf("Choice is = %d\n",choice);
@@ -786,8 +816,11 @@ void *connection_handler(void *socket_desc)
 					puts("Search Successful");
 				}
 				break;
+			case 3:
+				puts("Ping Request From Directory");
+				break;
 			default:
-				printf("Invalid Choice %d",choice);
+				printf("Invalid Choice %d\n",choice);
 				break;
 		}
 

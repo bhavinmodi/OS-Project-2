@@ -18,23 +18,26 @@
 #define WorkerDirectoryIP "127.0.0.1"
 #define WorkerDirectoryPort 8002
 
+// For mutex
+int mutex = 0;
+
 typedef struct{
 	int sock;
 	int ip[4];
 }threadArgs;
 
-struct serverNode
+struct workerNode
 {
 	int ip[4];
 	int port;
 	int load;
-	struct serverNode *next;
+	struct workerNode *next;
 }*head, *curr;
 
 int addToList(int ipArr[], int port){
 	int i;
 
-	struct serverNode *ptr = (struct serverNode*)malloc(sizeof(struct serverNode));
+	struct workerNode *ptr = (struct workerNode*)malloc(sizeof(struct workerNode));
 
 	if(NULL == ptr){
 		puts("Node Creation Failed");
@@ -59,9 +62,9 @@ int addToList(int ipArr[], int port){
 	return 1;
 }
 
-int scanListServerR(int ipArr[], int port){
+int scanListworkerR(int ipArr[], int port){
 
-	struct serverNode *ptr = head;
+	struct workerNode *ptr = head;
 	int dupFound = 0, i;
 
 	while(ptr != NULL){
@@ -95,8 +98,8 @@ int scanListServerR(int ipArr[], int port){
 
 int scanListWorkerDR(int ipArr[], int port){
 
-	struct serverNode *ptr = head;
-	struct serverNode *follow = head;
+	struct workerNode *ptr = head;
+	struct workerNode *follow = head;
 
 	int nodeFound = 0, i, temp = 0;
 
@@ -144,11 +147,11 @@ int scanListWorkerDR(int ipArr[], int port){
 	}
 }
 
-struct serverNode* scanListWorker(){
+struct workerNode* scanListWorker(){
 
 	int minLoad = -1;
-	struct serverNode *ptr = head;
-	struct serverNode *result = NULL;
+	struct workerNode *ptr = head;
+	struct workerNode *result = NULL;
 
 	if(ptr == NULL){
 		puts("No Worker Found In List");
@@ -178,6 +181,74 @@ struct serverNode* scanListWorker(){
 	}
 
 	return result;
+}
+
+int locker(int operation, int ip[], int port){
+
+	if(mutex == 1){
+		while(mutex == 1){
+			// wait
+		}
+
+		// Lock for use
+		mutex = 1;
+	}
+
+	switch(operation){
+	case 0:
+		// Add to list - Register worker
+		if(addToList(ip, port) < 0){
+			// Release Lock
+			mutex = 0;
+			return -1;
+		}
+		break;
+	case 1:
+		// Remove for list - Deregister worker
+		if(scanListWorkerDR(ip, port) < 0){
+			// Release Lock
+			mutex = 0;
+			return -1;
+		}
+		break;
+	case 2:
+		// Scan list to check for duplicate workers
+		if(scanListworkerR(ip, port) < 0){
+			// Release Lock
+			mutex = 0;
+			return -1;
+		}
+		break;
+	default:
+		// Invalid op
+		puts("Invalid Operation");
+		// Release Lock
+		mutex = 0;
+		return -1;
+	}
+
+	// Release Lock
+	mutex = 0;
+	return 1;
+}
+
+struct workerNode* lockerForWorkerLookup(){
+	// Need to check lock before scanning
+	if(mutex == 1){
+		while(mutex == 0){
+			// Wait
+		}
+
+		// Lock it for use
+		mutex = 1;
+	}
+
+	struct workerNode *ptr = scanListWorker();
+
+	// Release Lock
+	mutex = 0;
+
+	return ptr;
 }
 
 int sendAck(int sock)
@@ -241,11 +312,11 @@ int sendInt(int sock, int a){
 
 int registerWorker(int ipArr[], int port){
 	//Register the server and Check for duplicate
-	if(scanListServerR(ipArr, port) < 0){
+	if(locker(2, ipArr, port) < 0){
 		puts("Duplicate: Existing IP and Port Address");
 		return -1;
 	}else{
-		if(addToList(ipArr, port) < 0){
+		if(locker(0, ipArr, port) < 0){
 			puts("Creating Worker Node Failed");
 			return -1;
 		}
@@ -258,7 +329,7 @@ int registerWorker(int ipArr[], int port){
 
 int deRegisterWorker(int ipArr[], int port){
 	//Deregister Worker
-	if(scanListWorkerDR(ipArr, port) < 0){
+	if(locker(1, ipArr, port) < 0){
 		puts("Deregister Failed");
 		return -1;
 	}else{
@@ -267,14 +338,57 @@ int deRegisterWorker(int ipArr[], int port){
 	}
 }
 
+int workerStatus(char ip_addr[], int port){
+	int sock;
+	struct sockaddr_in server;
+
+	//Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1) {
+		puts("Could not create socket");
+		return -1;
+	}
+	puts("Socket created");
+
+	//Now setup Worker connection
+	server.sin_addr.s_addr = inet_addr(ip_addr);
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+
+	//Connect to Worker
+	puts("Trying to connect to Worker");
+	int connected = 1;
+	while(connected == 1){
+		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	}
+
+	if(connected == 0){
+		//Connected to Worker
+		puts("Connected");
+
+		// Inform the Worker it was a ping request
+		if(sendInt(sock, 3) < 0){
+			puts("Ping request failed");
+			return -1;
+		}
+
+		// Connection verified, close it
+		close(sock);
+		return 1;
+	}else{
+		// Worker is not available
+		return -1;
+	}
+}
+
 int runWorkerLookup(int sock){
 	//Look for the worker with least load
-
 	//Find the worker and send the IP and Port to the tiny google server
-	struct serverNode *ptr = scanListWorker();
+	struct workerNode *ptr = lockerForWorkerLookup();
+
 	int requestResult;
 	if(ptr == NULL){
-		//Send Server not Found
+		//Send Worker not Found
 		requestResult = 0;
 		if(send(sock, &requestResult, sizeof(requestResult), 0) < 0){
 			puts("Send Query result Failed");
@@ -285,7 +399,18 @@ int runWorkerLookup(int sock){
 		return -1;
 	}else{
 
-		//Send Server Found
+		//Convert ip to string
+		char address[50];
+		sprintf(address, "%d.%d.%d.%d", ptr->ip[0], ptr->ip[1], ptr->ip[2], ptr->ip[3]);
+
+		// Worker found, make sure it is still alive by pinging it
+		if(workerStatus(address, ptr->port) < 0){
+			// Worker not present, deregister it and look for another one
+			locker(1, ptr->ip, ptr->port);
+			runWorkerLookup(sock);
+		}
+
+		//Send Worker Found
 		requestResult = 1;
 		if(send(sock, &requestResult, sizeof(requestResult), 0) < 0){
 			puts("Send Query result Failed");
@@ -482,11 +607,12 @@ void *connection_handler(void *args)
 
 	switch(type){
 		case 0:
-			puts("Calling Worker Lookup");
+			puts("Calling Worker Lookup By Mini Google Server");
 			//Call Worker Lookup
 			if(runWorkerLookup(sock) < 0){
 				puts("Lookup Failure - Connection Terminated");
 			}
+
 			//Free the socket pointer
 			free(initArgs);
 			return 0;

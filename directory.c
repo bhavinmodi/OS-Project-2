@@ -18,6 +18,9 @@
 #define directoryIP "127.0.0.1"
 #define directoryPort 8001
 
+// For mutex
+int mutex = 0;
+
 typedef struct{
 	int sock;
 	int ip[4];
@@ -187,6 +190,74 @@ struct serverNode* scanListClient(){
 	return result;
 }
 
+int locker(int operation, int ip[], int port){
+
+	if(mutex == 1){
+		while(mutex == 1){
+			// wait
+		}
+
+		// Lock for use
+		mutex = 1;
+	}
+
+	switch(operation){
+	case 0:
+		// Add to list - Register server
+		if(addToList(ip, port) < 0){
+			// Release Lock
+			mutex = 0;
+			return -1;
+		}
+		break;
+	case 1:
+		// Remove for list - Deregister server
+		if(scanListServerDR(ip, port) < 0){
+			// Release Lock
+			mutex = 0;
+			return -1;
+		}
+		break;
+	case 2:
+		// Scan list to check for duplicate servers
+		if(scanListServerR(ip, port) < 0){
+			// Release Lock
+			mutex = 0;
+			return -1;
+		}
+		break;
+	default:
+		// Invalid op
+		puts("Invalid Operation");
+		// Release Lock
+		mutex = 0;
+		return -1;
+	}
+
+	// Release Lock
+	mutex = 0;
+	return 1;
+}
+
+struct serverNode* lockerForServerLookup(){
+	// Need to check lock before scanning
+	if(mutex == 1){
+		while(mutex == 0){
+			// Wait
+		}
+
+		// Lock it for use
+		mutex = 1;
+	}
+
+	struct serverNode *ptr = scanListClient();
+
+	// Release Lock
+	mutex = 0;
+
+	return ptr;
+}
+
 int sendAck(int sock)
 {
 	int ackValue = 1;
@@ -274,11 +345,11 @@ int registerServer(int ipArr[], int port){
 		printf("Register : ipArr[%d] = %d\n",i,ipArr[i]);
 	}
 
-	if(scanListServerR(ipArr, port) < 0){
+	if(locker(2, ipArr, port) < 0){
 		puts("Duplicate: Existing IP and Port Address");
 		return -1;
 	}else{
-		if(addToList(ipArr, port) < 0){
+		if(locker(0, ipArr, port) < 0){
 			puts("Creating Sever Node Failed");
 			return -1;
 		}
@@ -291,7 +362,7 @@ int registerServer(int ipArr[], int port){
 
 int deRegisterServer(int ipArr[], int port){
 	//Deregister Server
-	if(scanListServerDR(ipArr, port) < 0){
+	if(locker(1, ipArr, port) < 0){
 		puts("Deregister Failed");
 		return -1;
 	}else{
@@ -327,6 +398,15 @@ int serverStatus(char ip_addr[], int port){
 	if(connected == 0){
 		//Connected to Remote Server
 		puts("Connected");
+
+		// Inform the server it was a ping request
+		if(sendInt(sock, 3) < 0){
+			puts("Ping request failed");
+			return -1;
+		}
+
+		// Connection verified, close it
+		close(sock);
 		return 1;
 	}else{
 		// server is not available
@@ -346,7 +426,7 @@ void runServerPing(){
 
 		if(serverStatus(address, ptr->port) < 0) {
 			// Deregister the server
-			scanListServerDR(ptr->ip, ptr->port);
+			locker(1, ptr->ip, ptr->port);
 		}
 
 		ptr = ptr->next;
@@ -356,9 +436,9 @@ void runServerPing(){
 
 int runClientSetup(int sock){
 	//Look for the server with the requested service
-
 	//Find the server and send the IP and Port to the client
-	struct serverNode *ptr = scanListClient();
+	struct serverNode *ptr = lockerForServerLookup();
+
 	int requestResult;
 	if(ptr == NULL){
 		//Send Server not Found
@@ -616,6 +696,19 @@ void *connection_handler(void *args)
 	}
 }
 
+void* pingFunction(void *args){
+	// Continue pinging till the directory is running
+	while(1){
+		runServerPing();
+
+		// Wait for 5 seconds
+		time_t startTime = time(NULL); // return current time in seconds
+		while (time(NULL) - startTime < 5) {
+		   // Wait
+		}
+	}
+}
+
 int main(){
 
 	int i;
@@ -627,6 +720,19 @@ int main(){
 
 	//Initialize the serverList
 	head = NULL;
+
+	// Start Thread to ping for presence of servers
+	pthread_t pingThread;
+	int statusOfDeregisterThread = pthread_create(&pingThread, NULL, pingFunction, NULL);
+	if(statusOfDeregisterThread==0)
+	{
+		 printf("Deregister Thread created successfully \n");
+	}
+	else
+	{
+		printf("Deregister Thread creation failed \n");
+	}
+
 
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);

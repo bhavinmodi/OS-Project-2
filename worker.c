@@ -234,8 +234,6 @@ void setDeregisteredTrue(void)
 		printf("Deregistration failed \n");
 	}
 
-	//write invocation to deregister function
-	//TODO: Write deregister function
 }
 
 void* deRegisterMenu(void *args)
@@ -350,7 +348,7 @@ void *connection_handler(void *socket_desc)
 	int choice = 0;
 
 	while(deRegistered == 0){
-		puts("Waiting For User Choice...");
+		puts("Waiting For Server Command...");
 
 		while(1){
 			//initializing new while to look for choice value
