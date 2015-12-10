@@ -813,10 +813,10 @@ void *connection_handler(void *socket_desc)
 					if(startIndexing(sock) < 0){
 						puts("Indexing Failed | Closing connection");
 
-						//Free the socket pointer
+						/*//Free the socket pointer
 						close(sock);
 						free(socket_desc);
-						return 0;
+						return 0;*/
 					}else{
 						puts("Indexing Successful");
 					}
