@@ -115,6 +115,25 @@ int readInt(int sock, int* a){
 	return 1;
 }
 
+int readString(int sock, int a, char *b){
+	int statusOfRead, ackValue=1, statusOfAck;
+	while(1){
+		statusOfRead = recv(sock , b , sizeof(char)*a,0);
+		if(statusOfRead < 0){
+			puts("Receive Failed");
+			return -1;
+		}else{
+			break;
+		}
+	}
+	statusOfAck = send(sock , &ackValue , sizeof(int) , 0);
+	if(statusOfAck < 0){
+		puts("Receive Failed");
+		return -1;
+	}
+	return 1;
+}
+
 int registerWithDirService()
 {
 	// Register the server with the directory service
@@ -560,6 +579,10 @@ int getWorkerFromDirectory(char fileName[100], int op){
 		return 1;
 }
 
+int updateIndex(){
+	return 1;
+}
+
 int startIndexing(int sock){
 
 	//Accept incoming files and store them
@@ -660,11 +683,35 @@ int startIndexing(int sock){
 		}
 
 		//TODO: Wait for index from worker
+		int completionIndicator;
+		char word[1024];
+		while(1){
+			if(readInt(sock, &completionIndicator) < 0){
+				puts("Reading completion indicator from worker failed");
+				return -1;
+			}
+
+			if(completionIndicator == 0){
+				// Finished receiving index
+				break;
+			}else{
+				if(readString(sock, 1024, &word[0]) < 0){
+					puts("Failed to read index word from worker");
+					return -1;
+				}
+
+				printf("Word Received is : " + word);
+			}
+		}
 
 		// Update Index on server
 		if(mutex == 0){
 			mutex = 1;
-			updateIndex();
+			if(updateIndex() < 0){
+				puts("Indexing Update Failed");
+				mutex = 0;
+				return -1;
+			}
 			mutex = 0;
 		}else{
 			while(mutex == 1 || mutex == 2){
@@ -673,12 +720,20 @@ int startIndexing(int sock){
 
 			// Get the lock
 			mutex = 1;
-			updateIndex();
+			if(updateIndex() < 0){
+				puts("Indexing Update Failed");
+				mutex = 0;
+				return -1;
+			}
 			mutex = 0;
 		}
 
 	}
 
+	return 1;
+}
+
+int searchIndex(){
 	return 1;
 }
 
@@ -699,7 +754,11 @@ int startSearch(int sock){
 	// TODO: Perform search
 	if(mutex == 0 || mutex == 2){
 		mutex = 2;
-		searchIndex();
+		if(searchIndex() < 0){
+			puts("Searching Index failed");
+			mutex = 0;
+			return -1;
+		}
 		mutex = 0;
 	}else{
 		while(mutex == 1){
@@ -708,7 +767,11 @@ int startSearch(int sock){
 
 		// Acquire lock
 		mutex = 2;
-		searchIndex();
+		if(searchIndex() < 0){
+			puts("Searching Index failed");
+			mutex = 0;
+			return -1;
+		}
 		mutex = 0;
 	}
 
