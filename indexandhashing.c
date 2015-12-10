@@ -67,8 +67,7 @@ int arrayOfStructsCounter=0;
 
 //functions for itoa
 
-char *itoa(i)
-     int i;
+char *itoa(int i)
 {
   /* Room for INT_DIGITS digits, - and '\0' */
   static char buf[INT_DIGITS + 2];
