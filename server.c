@@ -579,7 +579,38 @@ int getWorkerFromDirectory(char fileName[100], int op){
 		return 1;
 }
 
-int updateIndex(){
+int updateIndex(int sock){
+
+	while(mutex == 1 || mutex == 2){
+		//wait
+	}
+
+	mutex = 1;
+
+	// Wait for index from worker
+	int completionIndicator;
+	char word[1024];
+	while(1){
+		if(readInt(sock, &completionIndicator) < 0){
+			puts("Reading completion indicator from worker failed");
+			return -1;
+		}
+
+		if(completionIndicator == 0){
+			// Finished receiving index
+			break;
+		}else{
+			if(readString(sock, 1024, &word[0]) < 0){
+				puts("Failed to read index word from worker");
+				return -1;
+			}
+
+			printf("Word Received is : %s",word);
+		}
+	}
+
+	mutex = 0;
+
 	return 1;
 }
 
@@ -675,57 +706,11 @@ int startIndexing(int sock){
 		// Close file
 		fclose(fp);
 
-		// Ask workerDirectory for worker and send it the file
+		// Ask workerDirectory for worker and send it the file and do the indexing
 		puts("Asking for worker from Worker Directory");
 		if(getWorkerFromDirectory(fileName, 1) < 0){
 			puts("Worker Directory | Worker Not Found");
 			return -1;
-		}
-
-		//TODO: Wait for index from worker
-		int completionIndicator;
-		char word[1024];
-		while(1){
-			if(readInt(sock, &completionIndicator) < 0){
-				puts("Reading completion indicator from worker failed");
-				return -1;
-			}
-
-			if(completionIndicator == 0){
-				// Finished receiving index
-				break;
-			}else{
-				if(readString(sock, 1024, &word[0]) < 0){
-					puts("Failed to read index word from worker");
-					return -1;
-				}
-
-				printf("Word Received is : " + word);
-			}
-		}
-
-		// Update Index on server
-		if(mutex == 0){
-			mutex = 1;
-			if(updateIndex() < 0){
-				puts("Indexing Update Failed");
-				mutex = 0;
-				return -1;
-			}
-			mutex = 0;
-		}else{
-			while(mutex == 1 || mutex == 2){
-				// Wait
-			}
-
-			// Get the lock
-			mutex = 1;
-			if(updateIndex() < 0){
-				puts("Indexing Update Failed");
-				mutex = 0;
-				return -1;
-			}
-			mutex = 0;
 		}
 
 	}
@@ -786,70 +771,120 @@ void *connection_handler(void *socket_desc)
     //Get the socket descriptor
     int sock = *(int*)socket_desc;
 
+    // Connector
+    int connector = -1;
+
 	// Choice
 	int choice = 0;
 
-	while(deRegistered == 0){
-		puts("Waiting For User Choice...");
+	if(readInt(sock, &connector) < 0){
+		puts("Connector Type Receive Failed");
+		//Free the socket pointer
+		close(sock);
+		free(socket_desc);
+		return 0;
+	}
 
-		while(1){
-			//initializing new while to look for choice value
-			if(readInt(sock, &choice) < 0){
-				if(choice == 3){
-					// Ping request Closure
-					puts("Connection closed by directory");
+	switch(connector){
+	case 1:
+		// Client
+		while(deRegistered == 0){
+			puts("Waiting For Client Choice...");
+
+			while(1){
+				//initializing new while to look for choice value
+				if(readInt(sock, &choice) < 0){
+					if(choice == 3){
+						// Ping request Closure
+						puts("Connection closed by directory");
+					}else{
+						puts("Receive Choice Failed | Maybe Client disconnected");
+					}
+					return 0;
 				}else{
-					puts("Receive Choice Failed | Maybe Client disconnected");
+					printf("Choice is = %d\n",choice);
+					break; //breaks from inner while loop
 				}
-				return 0;
-			}else{
-				printf("Choice is = %d\n",choice);
-				break; //breaks from inner while loop
 			}
+
+			switch(choice){
+				case 1:
+					// This is an indexing request
+					if(startIndexing(sock) < 0){
+						puts("Indexing Failed | Closing connection");
+
+						//Free the socket pointer
+						close(sock);
+						free(socket_desc);
+						return 0;
+					}else{
+						puts("Indexing Successful");
+					}
+					break;
+				case 2:
+					// This is a searching request
+					if(startSearch(sock) < 0){
+						puts("Search Failed | Closing Connection");
+
+						//Free the socket pointer
+						close(sock);
+						free(socket_desc);
+						return 0;
+					}else{
+						puts("Search Successful");
+					}
+					break;
+				default:
+					printf("Invalid Choice %d\n",choice);
+					break;
+			}
+
+		}
+		break;
+	case 2:
+		// Worker
+		puts("Waiting for worker choice..");
+
+		if(readInt(sock, &choice) < 0){
+			puts("Read Worker choice failed");
+			//Free the socket pointer
+			close(sock);
+			free(socket_desc);
+			return 0;
 		}
 
 		switch(choice){
 			case 1:
-				// This is an indexing request
-				if(startIndexing(sock)< 0 < 0){
-					puts("Indexing Failed | Closing connection");
-
-					//Free the socket pointer
-					close(sock);
-					free(socket_desc);
-					return 0;
-				}else{
-					puts("Indexing Successful");
+				// Indexing
+				if(updateIndex(sock) < 0){
+					puts("Update Index by worker failed");
 				}
 				break;
 			case 2:
-				// This is a searching request
-				if(startSearch(sock) < 0){
-					puts("Search Failed | Closing Connection");
-
-					//Free the socket pointer
-					close(sock);
-					free(socket_desc);
-					return 0;
-				}else{
-					puts("Search Successful");
+				// Searching
+				if(searchIndex()){
+					puts("Search File return failed");
 				}
 				break;
-			case 3:
-				puts("Ping Request From Directory");
-
+			default:
 				//Free the socket pointer
 				close(sock);
 				free(socket_desc);
 				return 0;
-			default:
-				printf("Invalid Choice %d\n",choice);
-				break;
 		}
-
+		break;
+	case 3:
+		puts("Ping Request From Directory");
+		//Free the socket pointer
+		close(sock);
+		free(socket_desc);
+		return 0;
+		break;
+	default:
+		puts("Invalid Connector Type");
 	}
 
-	//If we reach here, we have de-registered
+	//If we reach here, we have de-registered or completed
 	//Free the socket pointer
 	close(sock);
 	free(socket_desc);

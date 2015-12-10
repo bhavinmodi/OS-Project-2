@@ -570,7 +570,7 @@ int startRetryMode(){
 			printf("No Server Found");
 			// Try again after 1 minute
 			time_t startTime = time(NULL); // return current time in seconds
-			while (time(NULL) - startTime < 60) {
+			while (time(NULL) - startTime < 30) {
 			   // Wait
 			}
 		}else{

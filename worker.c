@@ -6,7 +6,6 @@
  */
 
 #include "indexandhashing.h"
-
 #include<stdio.h>
 #include<string.h>    //strlen
 #include<stdlib.h>    //strlen
@@ -23,6 +22,10 @@
 // Worker Directory address
 #define WorkerDirectoryIP "127.0.0.1"
 #define WorkerDirectoryPort 8002
+
+// Server Directory address
+#define ServerDirectoryIP "127.0.0.1"
+#define ServerDirectoryPort 8001
 
 // Worker Port
 #define WorkerIP "127.0.0.1"
@@ -278,6 +281,224 @@ void* deRegisterMenu(void *args)
 	return 0;
 }
 
+int connectToServer(int ip[], int port){
+	int sock;
+	struct sockaddr_in server;
+
+	//Convert ip to string
+	char address[50];
+	sprintf(address, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+
+	//Trim the char array
+	printf("The address we have is %s \n",address);
+
+	//Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1)
+	{
+		puts("Could not create socket");
+		return -1;
+	}
+	puts("Socket created");
+
+	//Now setup Server connection
+	server.sin_addr.s_addr = inet_addr(address);
+	//server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+	printf("Port it is trying to connect to is %d \n",port);
+
+	//Connect to Remote Server
+	puts("Trying to connect to Remote Server");
+	int connected = 1;
+	while(connected == 1){
+		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	}
+
+	if(connected == 0){
+		//Connected to Remote Server
+		puts("Connected");
+		return sock;
+	}else{
+		printf("Connection Failed : Return Value %d\n",connected);
+		return -1;
+	}
+
+}
+
+int getServerFromDirectory(int *ip, int *port){
+
+		//Initialize variables
+		int sock, result;
+		struct sockaddr_in server;
+
+		//Create socket
+	    sock = socket(AF_INET , SOCK_STREAM , 0);
+	    if (sock == -1)
+	    {
+	        puts("Could not create socket");
+			return -1;
+	    }
+	    puts("Socket created");
+
+		//Connect to Directory Register and get ip and port for service
+		server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
+	    server.sin_family = AF_INET;
+	    server.sin_port = htons(ServerDirectoryPort);
+
+		//Connect to Directory Service
+		puts("Trying to connect to Directory Service");
+		int connected = -1;
+		while(connected == -1){
+	    	connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+		}
+
+		//Connected to Directory Service
+	    puts("Connected");
+
+		//Let Directory know you are the client
+		if(sendInt(sock, 0) < 0){
+			puts("Send connector type worker failed");
+			close(sock);
+			return -1;
+		}
+
+		// Tell the directory there the reason for connecting
+		if(sendInt(sock, 1) < 1){
+			puts("Send connector reason worker failed");
+			close(sock);
+			return -1;
+		}
+
+		//Get Status of Server Found or Not
+		if(readInt(sock, &result) < 0){
+			puts("Receive Query Result failed");
+			close(sock);
+			return -1;
+		}else{
+			if(result == 0){
+				puts("Server Not Found");
+				close(sock);
+				return -1;
+			}
+		}
+
+		printf("Got Result = %d\n",result);
+
+		//Get IP
+		if(recv(sock , ip , sizeof(int)*4,0) < 0){
+			puts("Receive IP failed");
+			close(sock);
+			return -1;
+		}
+
+		//Send the ACK
+		if(sendAck(sock) < 0){
+			puts("Send ACK failed");
+			close(sock);
+			return -1;
+		}
+
+		//Get Port
+		if(readInt(sock , port) < 0){
+			puts("Receive Port failed");
+			close(sock);
+			return -1;
+		}
+
+		//Successful
+		//Close connection to Directory Service
+		close(sock);
+		return 1;
+}
+
+int sendIndexToServer(char fileName[]){
+	//Send Lookup Request
+	int ip[4];
+	int port;
+	int sock;
+	int sendFlag = 0;
+
+	// Get a new server
+	while(1){
+		if(getServerFromDirectory(&ip[0], &port) < 0){
+			printf("No Server Found | Will Not send index");
+		}else{
+			sendFlag = 1;
+			break;
+		}
+	}
+
+	if(sendFlag == 1){
+		sock = connectToServer(ip, port);
+		if(sock < 0){
+			puts("Worker failed to connect to the server");
+			sendFlag = 0;
+		}
+	}
+
+	if(sendFlag == 1){
+		// Inform server that you are the worker
+		if(sendInt(sock, 2) < 0){
+			puts("Send Connector type to server failed");
+			return -1;
+		}
+
+		// Inform server the purpose : Indexing
+		if(sendInt(sock, 1) < 0){
+			puts("Send request type to server failed");
+			return -1;
+		}
+	}
+
+	while(mutex == 1){
+		// Wait
+	}
+
+	mutex = 1;
+
+	char *word2=NULL;
+
+	hashFile(fileName);
+	//globalHashIterate();
+	printf("Hasing file done \n");
+	initializeConversionLocalHashToString();
+	convertLocalHashIntoString(fileName,&word2);
+	while(strcmp(word2,"EMPTY")!=0)
+	{
+		if(sendFlag == 1){
+			// Send a 1 indicating we still want to send words
+			if(sendInt(sock, 1) < 0){
+				puts("Sending '1' indicator that we still have words to send failed");
+				return -1;
+			}else{
+				puts("1 sent");
+			}
+
+			if(sendString(sock, 1024, word2) < 0){
+				puts("Sending Index Back To Server Failed");
+				return -1;
+			}else{
+				puts("Word sent");
+			}
+		}
+
+		printf("Word is : %s \n",word2);
+		convertLocalHashIntoString(fileName,&word2);
+	}
+
+	if(sendFlag == 1){
+		// Send 0 to indicate completion
+		if(sendInt(sock, 0) < 0){
+			puts("Sending '0' for completion of send index to server failed");
+			return -1;
+		}
+	}
+
+	mutex = 0;
+	return 1;
+}
+
 int startIndexing(int sock){
 
 	//Accept incoming files and store them
@@ -343,79 +564,13 @@ int startIndexing(int sock){
 	// Close file
 	fclose(fp);
 
-	//TODO: Perform indexing
-	if(mutex  == 0){
-		mutex = 1;
+	// Close connection to server
+	close(sock);
 
-		char *word2=NULL;
-
-		hashFile(fileName);
-		//globalHashIterate();
-		printf("Hasing file done \n");
-		initializeConversionLocalHashToString();
-		convertLocalHashIntoString(fileName,&word2);
-		while(strcmp(word2,"EMPTY")!=0)
-		{
-			//TODO: Bhavin add code here to push this word to server
-			
-			if(sendString(sock, 1024, word2) < 0){
-				puts("Sending Index Back To Server Failed");
-				return -1;
-			}
-			
-
-			printf("Word is : %s \n",word2);
-			convertLocalHashIntoString(fileName,&word2);
-		}
-
-		// Send 0 to indicate completion
-		if(sendInt(sock, 0) < 0){
-			puts("Sending '0' for completion of send index to server failed");
-			return -1;
-		}
-
-		mutex = 0;
-	}else{
-		while(mutex == 1){
-			// Wait
-		}
-
-		mutex = 1;
-
-		char *word2=NULL;
-
-		hashFile(fileName);
-		//globalHashIterate();
-		initializeConversionLocalHashToString();
-		convertLocalHashIntoString(fileName,&word2);
-		while(strcmp(word2,"EMPTY")!=0)
-		{
-			//TODO: Bhavin add code here to push this word to server
-
-			// Send a 1 indicating we still want to send words
-			
-			if(sendInt(sock, 1) < 0){
-				puts("Sending '1' indicator that we still have words to send failed");
-				return -1;
-			}
-
-			if(sendString(sock, 1024, word2) < 0){
-				puts("Sending Index Back To Server Failed");
-				return -1;
-			}
-			
-
-			printf("Word is : %s \n",word2);
-			convertLocalHashIntoString(fileName,&word2);
-		}
-
-		// Send 0 to indicate completion
-		if(sendInt(sock, 0) < 0){
-			puts("Sending '0' for completion of send index to server failed");
-			return -1;
-		}
-
-		mutex = 0;
+	// Perform indexing
+	if(sendIndexToServer(fileName) < 0){
+		puts("Index Generation or Sending Failed");
+		return -1;
 	}
 
 	return 1;
@@ -481,6 +636,7 @@ void *connection_handler(void *socket_desc)
 				puts("Indexing Failed | Closing connection");
 
 				//Free the socket pointer
+				close(sock);
 				free(socket_desc);
 				return 0;
 			}else{

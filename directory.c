@@ -399,7 +399,7 @@ int serverStatus(char ip_addr[], int port){
 		//Connected to Remote Server
 		puts("Connected");
 
-		// Inform the server it was a ping request
+		// Inform you are the directory and it was a ping request
 		if(sendInt(sock, 3) < 0){
 			puts("Ping request failed");
 			return -1;
@@ -635,7 +635,7 @@ void *connection_handler(void *args)
 		}
 	}
 
-	printf("Got Type Client/Server = %d\n", type);
+	printf("Got Type Client | Worker | Server = %d\n", type);
 
 	//Send Ack, to be ready for next message
 	if(sendAck(sock) < 0){
@@ -648,7 +648,7 @@ void *connection_handler(void *args)
 	switch(type){
 		case 0:
 		{
-			puts("Calling Client");
+			puts("Calling Client | Worker");
 			// Tell type of request
 			int request = -1;
 			if(readInt(sock, &request) < 0){
@@ -723,14 +723,14 @@ int main(){
 
 	// Start Thread to ping for presence of servers
 	pthread_t pingThread;
-	int statusOfDeregisterThread = pthread_create(&pingThread, NULL, pingFunction, NULL);
-	if(statusOfDeregisterThread==0)
+	int statusOfPingThread = pthread_create(&pingThread, NULL, pingFunction, NULL);
+	if(statusOfPingThread == 0)
 	{
-		 printf("Deregister Thread created successfully \n");
+		 printf("Ping Thread created successfully \n");
 	}
 	else
 	{
-		printf("Deregister Thread creation failed \n");
+		printf("Ping Thread creation failed \n");
 	}
 
 

@@ -568,6 +568,26 @@ int runWorkerSetup(int sock, int ipArr[]){
 	return 1;
 }
 
+void runWorkerPing(){
+	struct workerNode *ptr = head;
+
+	while(ptr != NULL){
+
+		// Get IP and Port and Ping the worker
+		//Convert ip to string
+		char address[50];
+		sprintf(address, "%d.%d.%d.%d", ptr->ip[0], ptr->ip[1], ptr->ip[2], ptr->ip[3]);
+
+		if(workerStatus(address, ptr->port) < 0) {
+			// Deregister the worker
+			locker(1, ptr->ip, ptr->port);
+		}
+
+		ptr = ptr->next;
+	}
+
+}
+
 /*
  * This will handle connection for each client/server
  * */
@@ -636,6 +656,19 @@ void *connection_handler(void *args)
 	}
 }
 
+void* pingFunction(void *args){
+	// Continue pinging till the directory is running
+	while(1){
+		runWorkerPing();
+
+		// Wait for 5 seconds
+		time_t startTime = time(NULL); // return current time in seconds
+		while (time(NULL) - startTime < 10) {
+		   // Wait
+		}
+	}
+}
+
 int main(){
 
 	int i;
@@ -647,6 +680,18 @@ int main(){
 
 	//Initialize the serverList
 	head = NULL;
+
+	// Start Thread to ping for presence of servers
+	pthread_t pingThread;
+	int statusOfPingThread = pthread_create(&pingThread, NULL, pingFunction, NULL);
+	if(statusOfPingThread == 0)
+	{
+		 printf("Ping Thread created successfully \n");
+	}
+	else
+	{
+		printf("Ping Thread creation failed \n");
+	}
 
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
