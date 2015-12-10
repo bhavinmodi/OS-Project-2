@@ -466,6 +466,10 @@ int main(int argc , char *argv[])
     c = sizeof(struct sockaddr_in);
     while( (client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) )
     {
+    	if(deRegistered == 1){
+    		break;
+    	}
+
         puts("Connection accepted");
 
         pthread_t sniffer_thread;
@@ -487,6 +491,8 @@ int main(int argc , char *argv[])
     {
         perror("accept failed");
         return 1;
+    }else{
+    	close(client_sock);
     }
 
     return 0;
