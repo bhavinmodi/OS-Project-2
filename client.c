@@ -15,6 +15,7 @@
 #include<sys/stat.h>
 #include<string.h>
 #include<dirent.h>
+#include<libgen.h>
 
 // Server Directory address
 #define ServerDirectoryIP "127.0.0.1"
@@ -290,13 +291,9 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 	// Entire file path
 	char wholePath[200];
 
-	if(strcmp(fileName, "empty") == 0){
-		strcpy(wholePath, path);
-	}else{
-		strcpy(wholePath, path);
-		strcat(wholePath, "\\");
-		strcat(wholePath, fileName);
-	}
+	strcpy(wholePath, path);
+	strcat(wholePath, "\\");
+	strcat(wholePath, fileName);
 
 	printf("Whole File Path = %s\n",wholePath);
 
@@ -307,9 +304,24 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 	int size;
 	struct stat s;
 
-	if (stat(wholePath, &s) == 0){
-		size = s.st_size;
+	int status = stat(wholePath, &s);
+
+	if(status < 0){
+		// stat failed
+		puts("No Such File or Directory");
+
+		// Send incorrect file details stopper as status -1
+		if(sendInt(sock, -1) < 0){
+			puts("Incorrect file details sent as status -1 :  Failed to send");
+		}
+		return -1;
+	}else{
+		if(sendInt(sock, 1) < 0){
+			puts("Incorrect file details sent as status 1 :  Failed to send");
+		}
 	}
+
+	size = s.st_size;
 
 	printf("File Size = %d\n",size);
 
@@ -456,8 +468,14 @@ int clientInput(int sock){
 						break;
 					}
 
-					//set filename to empty, to indicate the path was a regular file
-					strcpy(fileName, "empty");
+					// Extracting file and directory from path
+					char *bname = basename(path);
+					char *dname = dirname(path);
+
+					strcpy(fileName, bname);
+					strcpy(path, dname);
+
+					printf("FileName = %s, DirName = %s\n",fileName, path);
 
 					if(sendFileToServer(sock, path, fileName) < 0){
 						printf("%s : Send Failed\n",fileName);

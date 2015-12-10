@@ -375,9 +375,9 @@ int sendFileToWorker(int sock, char fileName[100]){
 	int ret = remove(fileName);
 
     if(ret == 0) {
-	  printf("File deleted successfully");
+	  puts("File deleted successfully");
     }else {
-	  printf("Error: unable to delete the file");
+	  puts("Error: unable to delete the file");
 	  return -1;
     }
 
@@ -567,6 +567,7 @@ int startIndexing(int sock){
 	int fileSize, bytesRead;
 	char buffer[1024];
 	int filePresent;
+	int fileDetailStatus;
 
 	while(1){
 
@@ -579,6 +580,16 @@ int startIndexing(int sock){
 		if(filePresent < 0){
 			// No more files
 			break;
+		}
+
+		// Get status if file details on client is correct
+		if(readInt(sock, &fileDetailStatus) < 0){
+			return -1;
+		}else{
+			if(fileDetailStatus == -1){
+				puts("Client got incorrect file details | Closing Indexing");
+				return -1;
+			}
 		}
 
 		// Get Filename
@@ -644,7 +655,7 @@ int startIndexing(int sock){
 		// Ask workerDirectory for worker and send it the file
 		puts("Asking for worker from Worker Directory");
 		if(getWorkerFromDirectory(fileName, 1) < 0){
-			puts("Server Not Found");
+			puts("Worker Directory | Worker Not Found");
 			return -1;
 		}
 
@@ -798,6 +809,7 @@ void *connection_handler(void *socket_desc)
 					puts("Indexing Failed | Closing connection");
 
 					//Free the socket pointer
+					close(sock);
 					free(socket_desc);
 					return 0;
 				}else{
@@ -810,6 +822,7 @@ void *connection_handler(void *socket_desc)
 					puts("Search Failed | Closing Connection");
 
 					//Free the socket pointer
+					close(sock);
 					free(socket_desc);
 					return 0;
 				}else{
