@@ -347,59 +347,59 @@ void *connection_handler(void *socket_desc)
 	// Choice
 	int choice = 0;
 
-	while(deRegistered == 0){
-		puts("Waiting For Server | Worker Directory Command...");
+	puts("Waiting For Server | Worker Directory Command...");
 
-		while(1){
-			//initializing new while to look for choice value
-			if(readInt(sock, &choice) < 0){
-				puts("Receive Choice Failed | Maybe Server disconnected");
+	while(1){
+		//initializing new while to look for choice value
+		if(readInt(sock, &choice) < 0){
+			puts("Receive Choice Failed | Maybe Server disconnected");
+			return 0;
+		}else{
+			printf("Choice is = %d\n",choice);
+			break; //breaks from inner while loop
+		}
+	}
+
+	switch(choice){
+		case 1:
+			// This is an indexing request
+			if(startIndexing(sock) < 0){
+				puts("Indexing Failed | Closing connection");
+
+				//Free the socket pointer
+				free(socket_desc);
 				return 0;
 			}else{
-				printf("Choice is = %d\n",choice);
-				break; //breaks from inner while loop
+				puts("Indexing Successful");
 			}
-		}
+			break;
+		case 2:
+			// This is a searching request
+			if(startSearch(sock) < 0){
+				puts("Search Failed | Closing Connection");
 
-		switch(choice){
-			case 1:
-				// This is an indexing request
-				if(startIndexing(sock) < 0){
-					puts("Indexing Failed | Closing connection");
-
-					//Free the socket pointer
-					free(socket_desc);
-					return 0;
-				}else{
-					puts("Indexing Successful");
-				}
-				break;
-			case 2:
-				// This is a searching request
-				if(startSearch(sock) < 0){
-					puts("Search Failed | Closing Connection");
-
-					//Free the socket pointer
-					free(socket_desc);
-					return 0;
-				}else{
-					puts("Search Successful");
-				}
-				break;
-			case 3:
-				puts("Ping Request from the Worker Directory");
+				//Free the socket pointer
 				close(sock);
 				free(socket_desc);
 				return 0;
-			default:
-				printf("Invalid Choice %d",choice);
-				break;
-		}
-
+			}else{
+				puts("Search Successful");
+			}
+			break;
+		case 3:
+			puts("Ping Request from the Worker Directory");
+			close(sock);
+			free(socket_desc);
+			return 0;
+		default:
+			printf("Invalid Choice %d",choice);
+			break;
 	}
+
 
 	//If we reach here, we have de-registered
 	//Free the socket pointer
+	close(sock);
 	free(socket_desc);
 
 	return 0;

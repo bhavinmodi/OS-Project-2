@@ -844,6 +844,7 @@ void *connection_handler(void *socket_desc)
 
 	//If we reach here, we have de-registered
 	//Free the socket pointer
+	close(sock);
 	free(socket_desc);
 
 	return 0;
@@ -908,8 +909,12 @@ int main(int argc , char *argv[])
     //Accept and incoming connection
     puts("Waiting for incoming connections...");
     c = sizeof(struct sockaddr_in);
-    while( (client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) )
-    {
+    while( (client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) ) {
+    	// If server has deregistered exit
+    	if(deRegistered == 1){
+    		break;
+    	}
+
         puts("Connection accepted");
 
         pthread_t sniffer_thread;
@@ -927,10 +932,11 @@ int main(int argc , char *argv[])
         puts("Handler assigned");
     }
 
-    if (client_sock < 0)
-    {
+    if (client_sock < 0) {
         perror("accept failed");
         return 1;
+    }else{
+    	close(client_sock);
     }
 
     return 0;
