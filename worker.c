@@ -29,6 +29,9 @@
 //the thread function
 int deRegistered=0;
 
+// MUTEX ON INDEX
+int mutex = 0;
+
 int sendAck(int sock)
 {
 	int ackValue = 1;
@@ -316,6 +319,19 @@ int startIndexing(int sock){
 	fclose(fp);
 
 	//TODO: Perform indexing
+	if(mutex  == 0){
+		mutex = 1;
+		// TODO: Add indexing code here
+		mutex = 0;
+	}else{
+		while(mutex == 1){
+			// Wait
+		}
+
+		mutex = 1;
+		// TODO: Add indexing code here
+		mutex = 0;
+	}
 
 	return 1;
 }
@@ -335,6 +351,19 @@ int startSearch(int sock){
 	}
 
 	// TODO: Perform search
+	if(mutex  == 0){
+		mutex = 1;
+		// TODO: Perform search
+		mutex = 0;
+	}else{
+		while(mutex == 1){
+			// Wait
+		}
+
+		mutex = 1;
+		// TODO: Perform search
+		mutex = 0;
+	}
 
 	return 1;
 }
