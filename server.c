@@ -277,11 +277,11 @@ void setDeregisteredTrue(void)
 	int statusOfDeregistration = deregisterWithDirService();
 	if(statusOfDeregistration==1)
 	{
-		printf("Deregistration complete \n");
+		puts("Deregistration complete");
 	}
 	else
 	{
-		printf("Deregistration failed \n");
+		puts("Deregistration failed");
 	}
 
 	//write invocation to deregister function
@@ -290,11 +290,11 @@ void setDeregisteredTrue(void)
 
 void* deRegisterMenu(void *args)
 {
-	printf("Please enter 1 to deregister \n");
+	puts("Please enter 1 to deregister");
 	scanf("%d",&deRegistered);
 	if(deRegistered!=1)
 	{
-		printf("Incorrect option \n");
+		puts("Incorrect option");
 		deRegisterMenu(&deRegistered);
 	}
 	setDeregisteredTrue();

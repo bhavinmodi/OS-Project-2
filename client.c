@@ -585,7 +585,7 @@ int AskUserToContinue(){
 	// Character used for continue message
 	char response;
 
-	puts("Failed to connect to server");
+	puts("Failed to connect to server | Exit Request");
 
 	int inputAccepted = 0;
 	while(inputAccepted == 0){

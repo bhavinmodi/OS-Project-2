@@ -348,7 +348,7 @@ void *connection_handler(void *socket_desc)
 	int choice = 0;
 
 	while(deRegistered == 0){
-		puts("Waiting For Server Command...");
+		puts("Waiting For Server | Worker Directory Command...");
 
 		while(1){
 			//initializing new while to look for choice value
@@ -386,6 +386,11 @@ void *connection_handler(void *socket_desc)
 					puts("Search Successful");
 				}
 				break;
+			case 3:
+				puts("Ping Request from the Worker Directory");
+				close(sock);
+				free(socket_desc);
+				return 0;
 			default:
 				printf("Invalid Choice %d",choice);
 				break;
