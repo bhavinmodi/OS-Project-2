@@ -629,7 +629,7 @@ int startIndexing(int sock){
 				}
 			}
 
-			printf("Length of buffer read for file = %d\n",strlen(buffer));
+			//printf("Length of buffer read for file = %d\n",strlen(buffer));
 			// Add bytes read from length of buffer
 			bytesRead = bytesRead + strlen(buffer);
 		}
@@ -818,7 +818,10 @@ void *connection_handler(void *socket_desc)
 				break;
 			case 3:
 				puts("Ping Request From Directory");
-				break;
+
+				//Free the socket pointer
+				free(socket_desc);
+				return 0;
 			default:
 				printf("Invalid Choice %d\n",choice);
 				break;

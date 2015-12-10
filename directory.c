@@ -703,7 +703,7 @@ void* pingFunction(void *args){
 
 		// Wait for 5 seconds
 		time_t startTime = time(NULL); // return current time in seconds
-		while (time(NULL) - startTime < 5) {
+		while (time(NULL) - startTime < 10) {
 		   // Wait
 		}
 	}
