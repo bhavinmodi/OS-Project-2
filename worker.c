@@ -5,6 +5,8 @@
  *      Author: Bhavin
  */
 
+#include "indexandhashing.h"
+
 #include<stdio.h>
 #include<string.h>    //strlen
 #include<stdlib.h>    //strlen
@@ -349,15 +351,18 @@ int startIndexing(int sock){
 
 		hashFile(fileName);
 		//globalHashIterate();
+		printf("Hasing file done \n");
 		initializeConversionLocalHashToString();
 		convertLocalHashIntoString(fileName,&word2);
 		while(strcmp(word2,"EMPTY")!=0)
 		{
 			//TODO: Bhavin add code here to push this word to server
+			
 			if(sendString(sock, 1024, word2) < 0){
 				puts("Sending Index Back To Server Failed");
 				return -1;
 			}
+			
 
 			printf("Word is : %s \n",word2);
 			convertLocalHashIntoString(fileName,&word2);
@@ -388,6 +393,7 @@ int startIndexing(int sock){
 			//TODO: Bhavin add code here to push this word to server
 
 			// Send a 1 indicating we still want to send words
+			
 			if(sendInt(sock, 1) < 0){
 				puts("Sending '1' indicator that we still have words to send failed");
 				return -1;
@@ -397,6 +403,7 @@ int startIndexing(int sock){
 				puts("Sending Index Back To Server Failed");
 				return -1;
 			}
+			
 
 			printf("Word is : %s \n",word2);
 			convertLocalHashIntoString(fileName,&word2);

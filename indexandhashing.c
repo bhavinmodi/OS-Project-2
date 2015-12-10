@@ -4,7 +4,7 @@
 #include <stdio.h>   /* printf */
 #define INT_DIGITS 19	
 
-//LOCAL HASH TAKING 1 KB OF A FILE AT A TIME 
+
 struct my_struct* createmy_structStruct();
 struct my_struct* addValuesTomy_struct(struct my_struct *s, char word[], int noOfOccurences, char fileName[]);
 struct my_struct* appendValuesTomy_struct(struct my_struct *s, char word[], int noOfOccurences, char fileName[]);
@@ -30,8 +30,11 @@ void hashWordFromString(char string[]);
 void initializeConversionGlobalHashToString();
 char * convertGlobalHashIntoString();
 void initializeConversionLocalHashToString();
-char * convertLocalHashIntoString(char fileName[]);
+//char * convertLocalHashIntoString(char fileName[]);
+void convertLocalHashIntoString(char fileName[], char **dest2);
 
+
+//Look at MEMORY tags to find out where you are statically allocating data. See if it can be dynamic.
 
 struct localhashstruct {
     char* wordBeingHashed;             /* key (string is WITHIN the structure) */
@@ -87,6 +90,16 @@ char *itoa(i)
   return p;
 }
 
+//function for copying strings with dynamic memory 
+void copystring(char **first, char *second)
+{
+	//here assuming *first is a malloced thing
+    char *result = malloc(strlen(*first)+strlen(second)+1);
+    strcpy(result, *first);
+    strcpy(result+strlen(*first), second);
+	free(*first);
+	*first = result;
+}
 
 //start of all functions
 struct my_struct* createmy_structStruct()
@@ -224,6 +237,15 @@ void sortLinkedList(struct node* root)
 			}
 		}
     }
+}
+
+void sortAllSearchedWords()
+{
+	int i=0;
+	while(i<arrayOfStructsCounter)
+	{
+		sortLinkedList(arrayOfStructs[i]->root);
+	}
 }
 
 void hashWordIntoLocalHash(char c[])
@@ -413,7 +435,8 @@ void findMultipleWordsInHash(int numberOfWords)
 		i++;
 	}
 	
-	computeDocNameIntersection();
+	//char *test = computeDocNameIntersectionWithCharStar();
+	//printf("Test value is : \n %s \n",test);
 		
 }
 
@@ -480,6 +503,83 @@ void computeDocNameIntersection()
 	//put some check to see if at least one doc has all words
 }
 
+char * computeDocNameIntersectionWithCharStar()
+{
+	char *output = malloc(sizeof(char)*100);
+	char tempout[100];
+	
+	int rank=1;
+	
+	//this array gives the number of occurences related to a docName in arrayOfStructs[i]
+	int arrayForOccurencesEachWord[arrayOfStructsCounter+1];
+	
+	if(arrayOfStructsCounter==0)
+	{
+		printf("Error. System has not searched for any words \n");
+	}
+	
+	sortAllSearchedWords();
+	
+	struct node* primary = arrayOfStructs[0]->root;
+	
+	//printf("Random docname test : %s \n",arrayOfStructs[0]->root->docName);
+	
+	int varToCheckAtLeastOneMatch = 0;
+	
+	//start some form of loop
+	while(primary!=0 && rank<11)
+	{
+		char docNameBeingChecked[50];
+		strncpy(docNameBeingChecked,primary->docName,50);
+		
+		arrayForOccurencesEachWord[0] = checkIfLinkedListContains(arrayOfStructs[0]->root, docNameBeingChecked);
+		
+		int i=1;
+		int flag=0;
+		while(i<arrayOfStructsCounter)
+		{
+			printf("i value is %d \n",i);
+			arrayForOccurencesEachWord[i] = checkIfLinkedListContains(arrayOfStructs[i]->root, docNameBeingChecked);
+			if(arrayForOccurencesEachWord[i]==0)
+				flag = 1;
+			
+			i++;
+		}
+		
+		if(flag==0)
+		{
+			//this should show that array of two words have one common docName
+			varToCheckAtLeastOneMatch++;
+			printf("Rank %d :\n",rank);
+			sprintf(tempout,"%s matches all words being searched \n",docNameBeingChecked);
+			copystring(&output,tempout);
+			int j=0;
+			while(j<arrayOfStructsCounter)
+			{
+				sprintf(tempout,"%s || %d \n",arrayOfStructs[j]->wordBeingHashed,arrayForOccurencesEachWord[j]);
+				copystring(&output,tempout);
+				j++;
+			}
+			rank++;
+		}
+		
+		if(primary->next==0)
+			break;
+		
+		primary=primary->next;
+	}
+	//end the loop
+	
+	if(varToCheckAtLeastOneMatch==0)
+	{
+		sprintf(tempout,"No document matches the given set of words \n");
+		copystring(&output,tempout);
+	}
+	//put some check to see if at least one doc has all words
+	
+	return strdup(output);
+}
+
 void hashWordFromString(char string[])
 {
 	char *token=NULL;
@@ -526,7 +626,7 @@ char * convertGlobalHashIntoString()
 		//TODO : Write code to convert a word and its contents into string 
 		
 		
-		
+		//MEMORY
 		char dest[20000];
 		memset ( dest, 0, 20000 );
 		//char *source;
@@ -581,7 +681,7 @@ void initializeConversionLocalHashToString()
 	varForTransportingLocalHash = localhashid;
 }
 
-char * convertLocalHashIntoString(char fileName[])
+void convertLocalHashIntoString(char fileName[], char **dest2)
 {
 	if(varForTransportingLocalHash!=NULL)
 	{
@@ -604,14 +704,17 @@ char * convertLocalHashIntoString(char fileName[])
 		
 		strcat(dest,nullTerminator);
 		varForTransportingLocalHash = varForTransportingLocalHash->hh.next;
-		return strdup(dest);
+		//return strdup(dest);
+		*dest2 = dest;
 	}
 	else
 	{
-		return "EMPTY";
+		char *empty = "EMPTY";
+		//return "EMPTY";
+		*dest2 = empty;
 	}
 }
-
+/*
 main()
 {
 	structtopointtoemptyvalues = createmy_structForEmptyValues();
@@ -626,7 +729,7 @@ main()
     // findWordInHash("Droid");
 	// findMultipleWordsInHash(4);
 	//initializeConversionHashToString();
-	char *word=NULL;
+
 	
 	
 	//code used to get global hash word by word
@@ -641,14 +744,17 @@ main()
 		// testvar++;
 	}
 	*/
+	/*
+	char *word=NULL;
     
-	word = convertLocalHashIntoString("bigfile.txt");
+	convertLocalHashIntoString("bigfile.txt",&word);
 	while(strcmp(word,"EMPTY")!=0)
 	{
 
 		printf("Word is : %s \n",word);
-		word = convertLocalHashIntoString("bigfile.txt");
+		convertLocalHashIntoString("bigfile.txt",&word);
 		// testvar++;
 	}
 	
 }
+*/
