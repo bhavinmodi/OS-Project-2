@@ -31,7 +31,7 @@
 #define ServerIP "127.0.0.1"
 #define ServerPort 8011
 
-// MUTEX LOCK
+// MUTEX LOCK ON INDEX
 int mutex = 0;
 
 //the thread function
@@ -660,6 +660,23 @@ int startIndexing(int sock){
 		}
 
 		//TODO: Wait for index from worker
+
+		// Update Index on server
+		if(mutex == 0){
+			mutex = 1;
+			updateIndex();
+			mutex = 0;
+		}else{
+			while(mutex == 1 || mutex == 2){
+				// Wait
+			}
+
+			// Get the lock
+			mutex = 1;
+			updateIndex();
+			mutex = 0;
+		}
+
 	}
 
 	return 1;
@@ -680,99 +697,25 @@ int startSearch(int sock){
 	}
 
 	// TODO: Perform search
-	getWorkerFromDirectory(keywords, 2);
+	if(mutex == 0 || mutex == 2){
+		mutex = 2;
+		searchIndex();
+		mutex = 0;
+	}else{
+		while(mutex == 1){
+			// Wait
+		}
+
+		// Acquire lock
+		mutex = 2;
+		searchIndex();
+		mutex = 0;
+	}
+
+	// TODO: Get Files from worker depending on result of search
+	//getWorkerFromDirectory(keywords, 2);
 
 	return 1;
-}
-
-/***
- * MUTEX
- */
-int startOp(int sock, int op){
-
-	if(mutex == 0){
-		// Perform Op
-		switch(op){
-		case 1:
-			// Indexing Op
-			mutex = 1;
-			if(startIndexing(sock)< 0){
-				mutex = 0;
-				return -1;
-			}else{
-				mutex = 0;
-				return 1;
-			}
-		case 2:
-			// Searching Op
-			mutex = 2;
-			if(startSearch(sock) < 0){
-				mutex = 0;
-				return -1;
-			}else{
-				mutex = 0;
-				return 1;
-			}
-			break;
-		default:
-			// Invalid Op
-			puts("Invalid Operation");
-			return -1;
-		}
-	}
-
-	if(mutex == 2){
-		// Searching Going On : Search Allowed, Indexing Not Allowed
-		if(op == 2){
-			// Conitnue
-		}else{
-			if(op == 1){
-				while(mutex == 2){
-					// Wait
-				}
-			}else{
-				// Invalid op, exit
-				puts("Invlaid Op");
-				return -1;
-			}
-		}
-	}else{
-		if(mutex == 1){
-			// Indexing going on, so wait
-			while(mutex == 1){
-				// Wait
-			}
-		}
-	}
-
-	switch(op){
-	case 1:
-		// Indexing Op
-		mutex = 1;
-		if(startIndexing(sock)< 0){
-			mutex = 0;
-			return -1;
-		}else{
-			mutex = 0;
-			return 1;
-		}
-	case 2:
-		// Searching Op
-		mutex = 2;
-		if(startSearch(sock) < 0){
-			mutex = 0;
-			return -1;
-		}else{
-			mutex = 0;
-			return 1;
-		}
-		break;
-	default:
-		// Invalid Op
-		puts("Invalid Operation");
-		return -1;
-	}
-
 }
 
 void *connection_handler(void *socket_desc)
@@ -805,7 +748,7 @@ void *connection_handler(void *socket_desc)
 		switch(choice){
 			case 1:
 				// This is an indexing request
-				if(startOp(sock, 1) < 0){
+				if(startIndexing(sock)< 0 < 0){
 					puts("Indexing Failed | Closing connection");
 
 					//Free the socket pointer
@@ -818,7 +761,7 @@ void *connection_handler(void *socket_desc)
 				break;
 			case 2:
 				// This is a searching request
-				if(startOp(sock, 2) < 0){
+				if(startSearch(sock) < 0){
 					puts("Search Failed | Closing Connection");
 
 					//Free the socket pointer
@@ -833,6 +776,7 @@ void *connection_handler(void *socket_desc)
 				puts("Ping Request From Directory");
 
 				//Free the socket pointer
+				close(sock);
 				free(socket_desc);
 				return 0;
 			default:
