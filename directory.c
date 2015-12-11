@@ -192,14 +192,12 @@ struct serverNode* scanListClient(){
 
 int locker(int operation, int ip[], int port){
 
-	if(mutex == 1){
-		while(mutex == 1){
-			// wait
-		}
-
-		// Lock for use
-		mutex = 1;
+	while(mutex == 1){
+		// wait
 	}
+
+	// Lock for use
+	mutex = 1;
 
 	switch(operation){
 	case 0:

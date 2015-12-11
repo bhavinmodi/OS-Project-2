@@ -44,7 +44,7 @@ int waitForAck(int sock){
 		}else{
 			puts("Got ACK");
 			//Got ACK
-			return 1;
+			break;
 		}
 	}
 
@@ -384,18 +384,26 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 
 int clientInput(int sock){
 
-	int choice;
+	int choice = -1;
 	char path[100], fileName[100];
 	char keywords[100];
+	int c;
 
 	// Print Menu for selecting Indexing or Search Query
 	printf("Select Job:\n1. Indexing\n2. Search\n3. Exit\nChoice: ");
-	scanf(" %d", &choice);
+
+	char line[2];
+	if (fgets(line, sizeof(line), stdin)) {
+	    sscanf(line, "%d", &choice);
+	}
 
 	switch(choice){
 	case 1:
 	{
 		// Indexing
+
+		// Re-initialize choice
+		choice = 0;
 
 		//Step 1 : Inform the server of the type of request
 		if(sendInt(sock, 1) < 0){
@@ -405,7 +413,6 @@ int clientInput(int sock){
 
 		//Step 2 : Ask user for input directory with the files to index
 		//flushing input stream
-		int c;
 		while((c = getchar()) != '\n' && c != EOF);
 
 		puts("Enter the directory path with the files you want to index : ");
@@ -433,11 +440,17 @@ int clientInput(int sock){
 				dp = opendir (path);
 
 				if (dp != NULL){
+					//puts("CK 1");
+
 					while ((ep = readdir (dp)) != NULL){
 						strcpy(fileName, ep->d_name);
 
+						//puts("CK 2");
+
 						// If it is a .txt file, then send it over
 						if(strstr(fileName, ".txt")){
+
+							//puts("CK 3");
 
 							// Inform the server if there is a file to send
 							if(sendInt(sock, 1) < 0){
@@ -451,17 +464,37 @@ int clientInput(int sock){
 							}else{
 								printf("%s : Sent\n",fileName);
 							}
+
+							// Wait for status of server after file sent
+							if(readInt(sock, &choice) < 0){
+								puts("Waiting for status of file response DIR failed");
+							}
+
+							if(choice < 0){
+								puts("Indexing Failure");
+								break;
+							}
 						}
 					}
 
-					// Inform the server there are no more files to send
-					if(sendInt(sock, -1) < 0){
-						puts("Sending File not present failed");
+					//puts("CK 4");
+
+					if(choice > 0){
+						// Inform the server there are no more files to send
+						if(sendInt(sock, -1) < 0){
+							puts("Sending File not present failed");
+						}
 					}
+
+					//puts("CK 5");
 
 					(void) closedir (dp);
 				}else{
 					perror ("Couldn't open the directory");
+					// Inform the server there was error in opening directory
+					if(sendInt(sock, -2) < 0){
+						puts("Sending error in opening directory failed");
+					}
 				}
 
 			}else{
@@ -490,27 +523,36 @@ int clientInput(int sock){
 						printf("%s : Sent\n",fileName);
 					}
 
-					// Inform the server there are no more files to send
-					if(sendInt(sock, -1) < 0){
-						puts("Sending File not present failed");
+					// Wait for status of server after file sent
+					if(readInt(sock, &choice) < 0){
+						puts("Waiting for status of file response REG failed");
+					}
+
+					if(choice  < 0){
+						puts("Indexing Failure | Try Again");
+					}else{
+						puts("Indexing Success");
+						// Inform the server there are no more files to send
+						if(sendInt(sock, -1) < 0){
+							puts("Sending File not present failed");
+						}
 					}
 				}else{
 					puts("Invalid Path");
 
-					// Inform the server there are no more files to send
-					if(sendInt(sock, -1) < 0){
-						puts("Sending File not present failed");
+					// Inform the server that the REG file path was invalid
+					if(sendInt(sock, -2) < 0){
+						puts("Sending Invalid Path :  failed");
 					}
 				}
 			}
 		}else{
 			puts("Failed to determine directory or file");
-			// Inform the server there are no more files to send
-			if(sendInt(sock, -1) < 0){
-				puts("Sending File not present failed");
+			// Inform the server there was a error in the file path
+			if(sendInt(sock, -2) < 0){
+				puts("Sending Failed to determine directory or file :  failed");
 			}
 		}
-
 		break;
 	}
 	case 2:
@@ -525,7 +567,6 @@ int clientInput(int sock){
 		puts("Enter the keywords for searching:");
 
 		//flushing the input stream
-		int c;
 		while((c = getchar()) != '\n' && c != EOF);
 
 		fgets(keywords, 100, stdin);
@@ -556,6 +597,10 @@ int clientInput(int sock){
 	default:
 		// Invalid Option, wait for a valid response
 		puts("Invalid Option");
+
+		//flushing input stream
+		while((c = getchar()) != '\n' && c != EOF);
+
 		return 0;
 	}
 
@@ -590,6 +635,7 @@ int startRetryMode(){
 int AskUserToContinue(){
 	// Character used for continue message
 	char response;
+	char c;
 
 	puts("Failed to connect to server | Exit Request");
 
@@ -599,6 +645,9 @@ int AskUserToContinue(){
 		scanf(" %c",&response);
 
 		if(response == 'y' || response == 'Y'){
+			//flushing input stream
+			while((c = getchar()) != '\n' && c != EOF);
+
 			return startRetryMode();
 		}else{
 			if(response == 'n' || response == 'N'){

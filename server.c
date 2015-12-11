@@ -645,7 +645,11 @@ int startIndexing(int sock){
 		}
 
 		if(filePresent < 0){
-			// No more files
+			// No more files or Invalid Path on client
+			if(filePresent == -2){
+				// invalid path
+				return -1;
+			}
 			break;
 		}
 
@@ -707,7 +711,7 @@ int startIndexing(int sock){
 				}
 			}
 
-			//printf("Length of buffer read for file = %d\n",(int)strlen(buffer));
+			printf("Length of buffer read for file = %d\n",bytesRead);
 			// Add bytes read from length of buffer
 			bytesRead = bytesRead + strlen(buffer);
 		}
@@ -723,7 +727,17 @@ int startIndexing(int sock){
 		puts("Asking for worker from Worker Directory");
 		if(getWorkerFromDirectory(fileName, 1) < 0){
 			puts("Worker Directory | Worker Not Found");
+
+			// Let the client know of indexing failure
+			if(sendInt(sock, -1) < 0){
+				puts("Letting the client know that the server could not find the directory : failure");
+			}
 			return -1;
+		}else{
+			// Let the client know that the worker got the file
+			if(sendInt(sock, 1) < 0){
+				puts("Letting the client know that the worker got the file : failure");
+			}
 		}
 
 	}
@@ -824,12 +838,7 @@ void *connection_handler(void *socket_desc)
 				case 1:
 					// This is an indexing request
 					if(startIndexing(sock) < 0){
-						puts("Indexing Failed | Closing connection");
-
-						/*//Free the socket pointer
-						close(sock);
-						free(socket_desc);
-						return 0;*/
+						puts("Indexing Failed");
 					}else{
 						puts("Indexing Successful");
 					}
