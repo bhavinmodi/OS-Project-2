@@ -385,7 +385,7 @@ int sendFileToWorker(int sock, char fileName[100]){
 
 	// Read file
 	while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
-		//Sending 5 KB of the file
+		//Sending 1 KB of the file
 		if(send(sock , &fileContents , sizeof(char)*1024 , 0) < 0){
 			puts("Send Failed");
 			return -1;
@@ -626,7 +626,7 @@ int updateIndex(int sock){
 				return -1;
 			}
 
-			printf("Word Received is : %s \n",word);
+			//printf("Word Received is : %s \n",word);
 			//printf("Test \n");
 			int sizeOfWord = strlen(word);
 			char stringToHash[sizeOfWord];

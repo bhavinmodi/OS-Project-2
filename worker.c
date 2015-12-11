@@ -480,7 +480,7 @@ int sendIndexToServer(char fileName[]){
 				mutex = 0;
 				return -1;
 			}else{
-				puts("1 sent");
+				//puts("1 sent");
 			}
 
 			if(sendString(sock, 1024, word2) < 0){
@@ -488,11 +488,11 @@ int sendIndexToServer(char fileName[]){
 				mutex = 0;
 				return -1;
 			}else{
-				puts("Word sent");
+				//puts("Word sent");
 			}
 		}
 
-		printf("Word is : %s \n",word2);
+		//printf("Word is : %s \n",word2);
 		convertLocalHashIntoString(fileName,&word2);
 	}
 
@@ -506,6 +506,9 @@ int sendIndexToServer(char fileName[]){
 	}
 
 	puts("0 for completion sent");
+
+	// Close the connection established with the server
+	close(sock);
 
 	mutex = 0;
 	return 1;
@@ -652,13 +655,10 @@ void *connection_handler(void *socket_desc)
 			// This is an indexing request
 			if(startIndexing(sock) < 0){
 				puts("Indexing Failed | Closing connection");
-
-				//Free the socket pointer
-				close(sock);
-				free(socket_desc);
 				return 0;
 			}else{
 				puts("Indexing Successful");
+				return 0;
 			}
 			break;
 		case 2:
