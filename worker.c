@@ -472,39 +472,35 @@ int sendIndexToServer(char fileName[]){
 	convertLocalHashIntoString(fileName,&word2);
 	while(strcmp(word2,"EMPTY")!=0)
 	{
-		printf("CK 1 \n");
 
 		if(sendFlag == 1){
 			// Send a 1 indicating we still want to send words
 			if(sendInt(sock, 1) < 0){
 				puts("Sending '1' indicator that we still have words to send failed");
+				mutex = 0;
 				return -1;
 			}else{
 				puts("1 sent");
 			}
 
-			printf("CK 2 \n");
-
 			if(sendString(sock, 1024, word2) < 0){
 				puts("Sending Index Back To Server Failed");
+				mutex = 0;
 				return -1;
 			}else{
 				puts("Word sent");
 			}
 		}
 
-		printf("CK 3 \n");
-
 		printf("Word is : %s \n",word2);
 		convertLocalHashIntoString(fileName,&word2);
 	}
-
-	printf("CK 4 \n");
 
 	if(sendFlag == 1){
 		// Send 0 to indicate completion
 		if(sendInt(sock, 0) < 0){
 			puts("Sending '0' for completion of send index to server failed");
+			mutex = 0;
 			return -1;
 		}
 	}
