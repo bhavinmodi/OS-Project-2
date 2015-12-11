@@ -274,6 +274,12 @@ int connectToServer(int ip[], int port){
 	if(connected == 0){
 		//Connected to Remote Server
 		puts("Connected");
+
+		// Let it know you are the client
+		if(sendInt(sock, 1) < 0){
+			puts("Sending connector type failed");
+			return -1;
+		}
 		return sock;
 	}else{
 		printf("Connection Failed : Return Value %d\n",connected);
@@ -341,7 +347,7 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 		return -1;
 	}
 
-	puts("File Name Sent");
+	printf("File Name Sent = %s\n",fileName);
 
 	if(waitForAck(sock) < 0){
 		return -1;
