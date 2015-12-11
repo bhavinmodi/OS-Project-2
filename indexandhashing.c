@@ -33,6 +33,7 @@ char * convertGlobalHashIntoString();
 void initializeConversionLocalHashToString();
 //char * convertLocalHashIntoString(char fileName[]);
 void convertLocalHashIntoString(char fileName[], char **dest2);
+void globalHashCount();
 
 
 //Look at MEMORY tags to find out where you are statically allocating data. See if it can be dynamic.
@@ -66,7 +67,7 @@ struct my_struct *arrayOfStructs[50];
 int arrayOfStructsCounter=0;
 
 
-//functions for itoa
+//functions for itoa1
 
 char *itoa1(i)
      int i;
@@ -246,6 +247,7 @@ void sortAllSearchedWords()
 	while(i<arrayOfStructsCounter)
 	{
 		sortLinkedList(arrayOfStructs[i]->root);
+		i++;
 	}
 }
 
@@ -319,6 +321,19 @@ void globalHashIterate()
     }
 }
 
+void globalHashCount()
+{
+	struct my_struct *s;
+	int count=0;
+    for(s=users; s != NULL; s=s->hh.next) {
+        //printf("Word is %s :\n",s->wordBeingHashed);
+		//printLinkedList(s->root);
+		count ++;
+    }
+	printf("Total no of distinct words in global hash is %d \n",count);
+}
+
+
 void freeLocalHash()
 {
 	HASH_ITER(hh, localhashid, s, tmp)
@@ -333,7 +348,7 @@ int hashFile(char fileName[])
 	freeLocalHash();
 	
 	char fileContents[1024];
-    const char delimiters[] = " .,;:$!-\n";
+    const char delimiters[] = " $%*#@()[]&^_/|\"<>.,;:!-\n";
     
     // Open file
     FILE *fp;
@@ -440,6 +455,24 @@ void findMultipleWordsInHash(int numberOfWords)
 	computeDocNameIntersectionWithCharStar(&test);
 	printf("Test value is : \n %s \n",test);
 		
+}
+
+void findMultipleWordsInHashWithSTRTOK(char string[])
+{
+	char *token=NULL;
+	char *endPtr;
+	char delimiters[] = " \n";
+	token = strtok_r(string, delimiters,&endPtr);
+	printf("Word being searched is : %s \n",token);
+        while(token!=NULL)
+        {
+        	findWordInHash(token);
+        	token = strtok_r(NULL,delimiters,&endPtr);
+        }
+    printf("Going to print test \n");
+	char *test;
+	computeDocNameIntersectionWithCharStar(&test);
+	printf("Test value is : \n %s \n",test);
 }
 
 void computeDocNameIntersection()
@@ -553,6 +586,8 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput)
 			//this should show that array of two words have one common docName
 			varToCheckAtLeastOneMatch++;
 			printf("Rank %d :\n",rank);
+			sprintf(tempout,"Rank %d :\n",rank);
+			copystring(&output,tempout);
 			sprintf(tempout,"%s matches all words being searched \n",docNameBeingChecked);
 			copystring(&output,tempout);
 			int j=0;
@@ -581,7 +616,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput)
 	
 	//return strdup(output);
 	*finalOutput = output;
-	free(output);
+	//free(output);
 }
 
 void hashWordFromString(char string[])
@@ -718,12 +753,13 @@ void convertLocalHashIntoString(char fileName[], char **dest2)
 		*dest2 = empty;
 	}
 }
+
 /*
 main()
 {
 	structtopointtoemptyvalues = createmy_structForEmptyValues();
 	int statusOfSend;
-    statusOfSend = hashFile("bigfile.txt");
+    statusOfSend = hashFile("dracula.txt");
 	if(statusOfSend==0)
 	{
 		printf("Hashing file failed \n");
@@ -732,6 +768,8 @@ main()
 	//findWordInHash("Duis");
     // findWordInHash("Droid");
 	// findMultipleWordsInHash(4);
+	char blah[] = "subscribe feeling important\n";
+	findMultipleWordsInHashWithSTRTOK(blah);
 	//initializeConversionHashToString();
 
 	
@@ -761,4 +799,5 @@ main()
 	}
 	
 }
-*/
+	*/
+
