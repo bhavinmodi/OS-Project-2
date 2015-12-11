@@ -212,11 +212,11 @@ void printLinkedList(struct node* root)
 	struct node *conductor;
     conductor = root; 
     if ( conductor != 0 ) {
-		printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
+		// printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
         while ( conductor->next != 0)
         {
             conductor = conductor->next;
-			printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
+			// printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
         }
     }
 }
@@ -325,7 +325,7 @@ void globalHashIterate()
     struct my_struct *s;
 
     for(s=users; s != NULL; s=s->hh.next) {
-        printf("Word is %s :\n",s->wordBeingHashed);
+        // printf("Word is %s :\n",s->wordBeingHashed);
 		printLinkedList(s->root);
     }
 }
@@ -373,9 +373,9 @@ int hashFile(char fileName[])
     // Read file
     while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
         //Sending 1 KB of the file
-        printf("Line : \n");
-        printf("%s\n",fileContents);
-        printf("Tokens : \n");
+        // printf("Line : \n");
+        // printf("%s\n",fileContents);
+        // printf("Tokens : \n");
         token = strtok (fileContents, delimiters);
         while(token!=NULL)
         {
@@ -419,7 +419,7 @@ void findWordInHash(char c[],struct my_struct *arrayOfStructs[],int *arrayOfStru
     HASH_FIND_STR( users, c, s2);
     if (s2)
     {
-    	printf("Details in hash table for word: %s \n",c);
+    	// printf("Details in hash table for word: %s \n",c);
 		printLinkedList(s2->root);
 		
 		//int randomTest = checkIfLinkedListContains(s2->root, "bigfile.txt");
@@ -484,10 +484,10 @@ void findMultipleWordsInHashWithSTRTOK(char string[])
         	findWordInHash(token,arrayOfStructs,&arrayOfStructsCounter);
         	token = strtok_r(NULL,delimiters,&endPtr);
         }
-    printf("Going to print test \n");
+    // printf("Going to print test \n");
 	char *test;
 	computeDocNameIntersectionWithCharStar(&test,arrayOfStructs,&arrayOfStructsCounter);
-	printf("Test value is : \n %s \n",test);
+	// printf("Test value is : \n %s \n",test);
 }
 
 /*
@@ -591,7 +591,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 		int flag=0;
 		while(i<*arrayOfStructsCounter)
 		{
-			printf("i value is %d \n",i);
+			// printf("i value is %d \n",i);
 			arrayForOccurencesEachWord[i] = checkIfLinkedListContains(arrayOfStructs[i]->root, docNameBeingChecked);
 			if(arrayForOccurencesEachWord[i]==0)
 				flag = 1;
@@ -603,7 +603,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 		{
 			//this should show that array of two words have one common docName
 			varToCheckAtLeastOneMatch++;
-			printf("Rank %d :\n",rank);
+			// printf("Rank %d :\n",rank);
 			sprintf(tempout,"Rank %d :\n",rank);
 			copystringwithoutfree(&output,tempout);
 			sprintf(tempout,"%s matches all words being searched \n",docNameBeingChecked);
@@ -646,22 +646,22 @@ void hashWordFromString(char string[])
 	char wordBeingHashed[50];
 	strncpy(wordBeingHashed,token,50);
 	int i=0;
-	printf("Word being hashed is : %s \n",wordBeingHashed);
+	// printf("Word being hashed is : %s \n",wordBeingHashed);
         while(token!=NULL)
         {
 
         	char *smallToken;
         	char *smallEnd;
-        	printf("Token : %s \n",token);
+        	// printf("Token : %s \n",token);
         	if(i!=0)
         	{
 		    	smallToken = strtok_r(token,":",&smallEnd);
 				char docName[50];
 				strncpy(docName,smallToken,50);
-		    	printf("Doc name is : %s \n",docName);
+		    	// printf("Doc name is : %s \n",docName);
 		    	smallToken = strtok_r(NULL,":",&smallEnd);
 				int wordCount = atoi(smallToken);
-		    	printf("Word count is : %d \n",wordCount);
+		    	// printf("Word count is : %d \n",wordCount);
 				hashWordIntoGlobalHash(docName,wordBeingHashed,wordCount);
         	}
         	token = strtok_r(NULL, delimiters,&endPtr);
