@@ -47,7 +47,7 @@ int waitForAck(int sock){
 			//Failure break
 			return -1;
 		}else{
-			puts("Got ACK");
+			//puts("Got ACK");
 			//Got ACK
 			return 1;
 		}
@@ -67,7 +67,7 @@ int sendAck(int sock)
 	int ackValue = 1;
 
 	if(send(sock, &ackValue, sizeof(int), 0) > 0){
-		puts("Ack Sent");
+		//puts("Ack Sent");
 		return 1;
 	}else{
 		puts("Ack Send Failed");
@@ -340,8 +340,8 @@ int sendFileToWorker(int sock, char fileName[100]){
 		return -1;
 	}
 
-	//Sending 5KB at a time
-	char fileContents[5120];
+	//Sending 1KB at a time
+	char fileContents[1024];
 
 	// Find out file size
 	int size;
@@ -384,9 +384,9 @@ int sendFileToWorker(int sock, char fileName[100]){
 	puts("File Size Sent");
 
 	// Read file
-	while(fgets(fileContents, 5120, (FILE*)fp) != NULL){
+	while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
 		//Sending 5 KB of the file
-		if(send(sock , &fileContents , sizeof(char)*5120 , 0) < 0){
+		if(send(sock , &fileContents , sizeof(char)*1024 , 0) < 0){
 			puts("Send Failed");
 			return -1;
 		}
@@ -612,6 +612,7 @@ int updateIndex(int sock){
 	while(1){
 		if(readInt(sock, &completionIndicator) < 0){
 			puts("Reading completion indicator from worker failed");
+			mutex = 0;
 			return -1;
 		}
 
@@ -621,6 +622,7 @@ int updateIndex(int sock){
 		}else{
 			if(readString(sock, 1024, &word[0]) < 0){
 				puts("Failed to read index word from worker");
+				mutex = 0;
 				return -1;
 			}
 
@@ -647,7 +649,7 @@ int startIndexing(int sock){
 	//Accept incoming files and store them
 	char fileName[100];
 	int fileSize, bytesRead;
-	char buffer[5120];
+	char buffer[1024];
 	int filePresent;
 	int fileDetailStatus;
 
@@ -714,9 +716,9 @@ int startIndexing(int sock){
 		bytesRead = 0;
 		while(bytesRead < fileSize){
 
-			// Read the first 5 KB
+			// Read the first 1 KB
 			while(1){
-				if(recv(sock , &buffer , sizeof(char)*5120,0) < 0){
+				if(recv(sock , &buffer , sizeof(char)*1024,0) < 0){
 					puts("Receive File Contents Failed");
 					return -1;
 				}else{
@@ -724,17 +726,17 @@ int startIndexing(int sock){
 					fputs(buffer, fp);
 					break;
 				}
-
-				// Send Ack
-				if(sendAck(sock) < 0){
-					puts("Sending Ack on File receive failed");
-					return -1;
-				}
 			}
 
-			printf("Length of buffer read for file = %d\n",bytesRead);
+			if(sendAck(sock) < 0){
+				puts("Sending Ack on File receive failed");
+				return -1;
+			}
+
 			// Add bytes read from length of buffer
 			bytesRead = bytesRead + strlen(buffer);
+
+			//printf("Length of buffer read for file = %d\n",bytesRead);
 		}
 
 		if(sendAck(sock) < 0){
@@ -899,12 +901,14 @@ void *connection_handler(void *socket_desc)
 		switch(choice){
 			case 1:
 				// Indexing
+				puts("Update index called");
 				if(updateIndex(sock) < 0){
 					puts("Update Index by worker failed");
 				}
 				break;
 			case 2:
 				// Searching
+				puts("Search index called");
 				if(searchIndex()){
 					puts("Search File return failed");
 				}

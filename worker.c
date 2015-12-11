@@ -42,7 +42,7 @@ int sendAck(int sock)
 	int ackValue = 1;
 
 	if(send(sock, &ackValue, sizeof(int), 0) > 0){
-		puts("Ack Sent");
+		//puts("Ack Sent");
 		return 1;
 	}else{
 		puts("Ack Send Failed");
@@ -467,11 +467,13 @@ int sendIndexToServer(char fileName[]){
 
 	hashFile(fileName);
 	//globalHashIterate();
-	printf("Hasing file done \n");
+	printf("Hashing file done \n");
 	initializeConversionLocalHashToString();
 	convertLocalHashIntoString(fileName,&word2);
 	while(strcmp(word2,"EMPTY")!=0)
 	{
+		printf("CK 1 \n");
+
 		if(sendFlag == 1){
 			// Send a 1 indicating we still want to send words
 			if(sendInt(sock, 1) < 0){
@@ -481,6 +483,8 @@ int sendIndexToServer(char fileName[]){
 				puts("1 sent");
 			}
 
+			printf("CK 2 \n");
+
 			if(sendString(sock, 1024, word2) < 0){
 				puts("Sending Index Back To Server Failed");
 				return -1;
@@ -489,9 +493,13 @@ int sendIndexToServer(char fileName[]){
 			}
 		}
 
+		printf("CK 3 \n");
+
 		printf("Word is : %s \n",word2);
 		convertLocalHashIntoString(fileName,&word2);
 	}
+
+	printf("CK 4 \n");
 
 	if(sendFlag == 1){
 		// Send 0 to indicate completion
@@ -512,7 +520,7 @@ int startIndexing(int sock){
 	//Accept incoming files and store them
 	char fileName[100];
 	int fileSize, bytesRead;
-	char buffer[5120];
+	char buffer[1024];
 
 	// Get Filename
 	while(1){
@@ -550,9 +558,9 @@ int startIndexing(int sock){
 	bytesRead = 0;
 	while(bytesRead < fileSize){
 
-		// Read the first 5 KB
+		// Read the first 1 KB
 		while(1){
-			if(recv(sock , &buffer , sizeof(char)*5120,0) < 0){
+			if(recv(sock , &buffer , sizeof(char)*1024,0) < 0){
 				puts("Receive File Contents Failed");
 				return -1;
 			}else{
@@ -560,16 +568,16 @@ int startIndexing(int sock){
 				fputs(buffer, fp);
 				break;
 			}
-
-			// Send Ack
-			if(sendAck(sock) < 0){
-				puts("Sending Ack for File receive from server failed");
-				return -1;
-			}
 		}
 
-		printf("Length of buffer read for file = %d\n",bytesRead);
+		// Send Ack
+		if(sendAck(sock) < 0){
+			puts("Sending Ack for File receive from server failed");
+			return -1;
+		}
+
 		bytesRead = bytesRead + strlen(buffer);
+		//printf("Length of buffer read for file = %d\n",bytesRead);
 	}
 
 	if(sendAck(sock) < 0){

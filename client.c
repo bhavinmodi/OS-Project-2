@@ -26,7 +26,7 @@ int sendAck(int sock)
 	int ackValue = 1;
 
 	if(send(sock, &ackValue, sizeof(int), 0) > 0){
-		puts("Ack Sent");
+		//puts("Ack Sent");
 		return 1;
 	}else{
 		return -1;
@@ -42,7 +42,7 @@ int waitForAck(int sock){
 			//Failure break
 			return -1;
 		}else{
-			puts("Got ACK");
+			//puts("Got ACK");
 			//Got ACK
 			break;
 		}
@@ -70,7 +70,7 @@ int sendInt(int sock, int a){
 			return -1;
 		}else{
 			if(ackValue == 1){
-				puts("Got Ack");
+				//puts("Got Ack");
 				return 1;
 			}else{
 				puts("Send Failed");
@@ -303,8 +303,8 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 
 	printf("Whole File Path = %s\n",wholePath);
 
-	//Sending 5KB at a time
-	char fileContents[5120];
+	//Sending 1 KB at a time
+	char fileContents[1024];
 
 	// Find out file size
 	int size;
@@ -362,9 +362,9 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 	puts("File Size Sent");
 
 	// Read file
-	while(fgets(fileContents, 5120, (FILE*)fp) != NULL){
+	while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
 		//Sending maximum 1 KB of the file (Can be less depending of bytes in the line)
-		if(send(sock , &fileContents , sizeof(char)*5120 , 0) < 0){
+		if(send(sock , &fileContents , sizeof(char)*1024 , 0) < 0){
 			puts("Send Failed");
 			return -1;
 		}
@@ -485,7 +485,7 @@ int clientInput(int sock){
 
 					//puts("CK 4");
 
-					if(choice > 0){
+					if(choice >= 0){
 						// Inform the server there are no more files to send
 						if(sendInt(sock, -1) < 0){
 							puts("Sending File not present failed");
