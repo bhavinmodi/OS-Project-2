@@ -576,6 +576,9 @@ int getWorkerFromDirectory(char fileName[100], int op){
 			return -1;
 		}
 
+		// Close connection to worker
+		close(sock);
+
 		return 1;
 }
 
@@ -700,7 +703,7 @@ int startIndexing(int sock){
 				}
 			}
 
-			//printf("Length of buffer read for file = %d\n",strlen(buffer));
+			//printf("Length of buffer read for file = %d\n",(int)strlen(buffer));
 			// Add bytes read from length of buffer
 			bytesRead = bytesRead + strlen(buffer);
 		}
