@@ -417,16 +417,15 @@ int sendIndexToServer(char fileName[]){
 	int ip[4];
 	int port;
 	int sock;
-	int sendFlag = 0;
+	int sendFlag;
 
 	// Get a new server
-	while(1){
-		if(getServerFromDirectory(&ip[0], &port) < 0){
-			printf("No Server Found | Will Not send index");
-		}else{
-			sendFlag = 1;
-			break;
-		}
+	if(getServerFromDirectory(&ip[0], &port) < 0){
+		puts("No Server Found | Will Not send index");
+		sendFlag = 0;
+	}else{
+		puts("Server Found");
+		sendFlag = 1;
 	}
 
 	if(sendFlag == 1){
@@ -495,6 +494,8 @@ int sendIndexToServer(char fileName[]){
 		}
 	}
 
+	puts("0 for completion sent");
+
 	mutex = 0;
 	return 1;
 }
@@ -554,6 +555,7 @@ int startIndexing(int sock){
 			}
 		}
 
+		//printf("Length of buffer read for file = %d\n",(int)strlen(buffer));
 		bytesRead = bytesRead + strlen(buffer);
 	}
 
@@ -616,16 +618,15 @@ void *connection_handler(void *socket_desc)
 	// Choice
 	int choice = 0;
 
-	puts("Waiting For Server | Worker Directory Command...");
+	//puts("Waiting For Server | Worker Directory Command...");
 
-	while(1){
-		//initializing new while to look for choice value
-		if(readInt(sock, &choice) < 0){
-			puts("Receive Choice Failed | Maybe Server disconnected");
-			return 0;
-		}else{
+	//initializing new while to look for choice value
+	if(readInt(sock, &choice) < 0){
+		puts("Receive Choice Failed | Maybe Server disconnected");
+		return 0;
+	}else{
+		if(choice != 3){
 			printf("Choice is = %d\n",choice);
-			break; //breaks from inner while loop
 		}
 	}
 
@@ -657,7 +658,7 @@ void *connection_handler(void *socket_desc)
 			}
 			break;
 		case 3:
-			puts("Ping Request from the Worker Directory");
+			//puts("Ping Request from the Worker Directory");
 			close(sock);
 			free(socket_desc);
 			return 0;
@@ -740,7 +741,7 @@ int main(int argc , char *argv[])
     		break;
     	}
 
-        puts("Connection accepted");
+        //puts("Connection accepted");
 
         pthread_t sniffer_thread;
         new_sock = malloc(1);
@@ -754,7 +755,7 @@ int main(int argc , char *argv[])
 
         //Now join the thread , so that we dont terminate before the thread
         //pthread_join( sniffer_thread , NULL);
-        puts("Handler assigned");
+        //puts("Handler assigned");
     }
 
     if (client_sock < 0)

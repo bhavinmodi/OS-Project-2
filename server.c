@@ -5,6 +5,7 @@
  *      Author: Bhavin
  */
 
+#include "indexandhashing.h"
 #include<stdio.h>
 #include<string.h>    //strlen
 #include<stdlib.h>    //strlen
@@ -614,9 +615,12 @@ int updateIndex(int sock){
 			char stringToHash[sizeOfWord];
 			strncpy(stringToHash,word,sizeOfWord);
 			hashWordFromString(stringToHash);
-			globalHashIterate();
+
+			//globalHashIterate();
 		}
 	}
+
+	puts("Received Index from worker");
 
 	mutex = 0;
 
@@ -883,7 +887,7 @@ void *connection_handler(void *socket_desc)
 		}
 		break;
 	case 3:
-		puts("Ping Request From Directory");
+		//puts("Ping Request From Directory");
 		//Free the socket pointer
 		close(sock);
 		free(socket_desc);
@@ -966,7 +970,7 @@ int main(int argc , char *argv[])
     		break;
     	}
 
-        puts("Connection accepted");
+        //puts("Connection accepted");
 
         pthread_t sniffer_thread;
         new_sock = malloc(1);
@@ -980,7 +984,7 @@ int main(int argc , char *argv[])
 
         //Now join the thread , so that we dont terminate before the thread
         //pthread_join( sniffer_thread , NULL);
-        puts("Handler assigned");
+        //puts("Handler assigned");
     }
 
     if (client_sock < 0) {

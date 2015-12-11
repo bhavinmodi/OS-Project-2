@@ -68,7 +68,7 @@ int arrayOfStructsCounter=0;
 
 //functions for itoa
 
-char *itoa(i)
+char *itoa1(i)
      int i;
 {
   /* Room for INT_DIGITS digits, - and '\0' */
@@ -333,7 +333,7 @@ int hashFile(char fileName[])
 	freeLocalHash();
 	
 	char fileContents[1024];
-    const char delimiters[] = " .,;:!-\n";
+    const char delimiters[] = " .,;:$!-\n";
     
     // Open file
     FILE *fp;
@@ -650,7 +650,7 @@ char * convertGlobalHashIntoString()
 			strcat(dest,conductor->docName);
 			strcat(dest,delim2);
 			char *wordCount=NULL;
-			wordCount = itoa(conductor->noOfOccurences);
+			wordCount = itoa1(conductor->noOfOccurences);
 			strcat(dest,wordCount);
 			while ( conductor->next != 0)
 			{
@@ -659,7 +659,7 @@ char * convertGlobalHashIntoString()
 				strcat(dest,conductor->docName);
 				strcat(dest,delim2);
 				char *wordCount=NULL;
-				wordCount = itoa(conductor->noOfOccurences);
+				wordCount = itoa1(conductor->noOfOccurences);
 				strcat(dest,wordCount);
 			}
 		}
@@ -703,7 +703,7 @@ void convertLocalHashIntoString(char fileName[], char **dest2)
 		strcat(dest,fileName);
 		strcat(dest,delim2);
 		char *wordCount=NULL;
-		wordCount = itoa(varForTransportingLocalHash->noOfHits);
+		wordCount = itoa1(varForTransportingLocalHash->noOfHits);
 		strcat(dest,wordCount);
 		
 		strcat(dest,nullTerminator);
