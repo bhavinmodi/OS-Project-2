@@ -303,8 +303,8 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 
 	printf("Whole File Path = %s\n",wholePath);
 
-	//Sending 1KB at a time
-	char fileContents[1024];
+	//Sending 5KB at a time
+	char fileContents[5120];
 
 	// Find out file size
 	int size;
@@ -362,10 +362,16 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 	puts("File Size Sent");
 
 	// Read file
-	while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
+	while(fgets(fileContents, 5120, (FILE*)fp) != NULL){
 		//Sending maximum 1 KB of the file (Can be less depending of bytes in the line)
-		if(send(sock , &fileContents , sizeof(char)*1024 , 0) < 0){
+		if(send(sock , &fileContents , sizeof(char)*5120 , 0) < 0){
 			puts("Send Failed");
+			return -1;
+		}
+
+		// Wait for Ack
+		if(waitForAck(sock) < 0){
+			puts("Failed receiving Ack when sending the file");
 			return -1;
 		}
 	}

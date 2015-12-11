@@ -512,7 +512,7 @@ int startIndexing(int sock){
 	//Accept incoming files and store them
 	char fileName[100];
 	int fileSize, bytesRead;
-	char buffer[1024];
+	char buffer[5120];
 
 	// Get Filename
 	while(1){
@@ -550,9 +550,9 @@ int startIndexing(int sock){
 	bytesRead = 0;
 	while(bytesRead < fileSize){
 
-		// Read the first 1 KB
+		// Read the first 5 KB
 		while(1){
-			if(recv(sock , &buffer , sizeof(char)*1024,0) < 0){
+			if(recv(sock , &buffer , sizeof(char)*5120,0) < 0){
 				puts("Receive File Contents Failed");
 				return -1;
 			}else{
@@ -560,9 +560,15 @@ int startIndexing(int sock){
 				fputs(buffer, fp);
 				break;
 			}
+
+			// Send Ack
+			if(sendAck(sock) < 0){
+				puts("Sending Ack for File receive from server failed");
+				return -1;
+			}
 		}
 
-		//printf("Length of buffer read for file = %d\n",(int)strlen(buffer));
+		printf("Length of buffer read for file = %d\n",bytesRead);
 		bytesRead = bytesRead + strlen(buffer);
 	}
 

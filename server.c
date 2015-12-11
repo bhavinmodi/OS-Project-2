@@ -340,8 +340,8 @@ int sendFileToWorker(int sock, char fileName[100]){
 		return -1;
 	}
 
-	//Sending 1KB at a time
-	char fileContents[1024];
+	//Sending 5KB at a time
+	char fileContents[5120];
 
 	// Find out file size
 	int size;
@@ -384,10 +384,16 @@ int sendFileToWorker(int sock, char fileName[100]){
 	puts("File Size Sent");
 
 	// Read file
-	while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
-		//Sending 1 KB of the file
-		if(send(sock , &fileContents , sizeof(char)*1024 , 0) < 0){
+	while(fgets(fileContents, 5120, (FILE*)fp) != NULL){
+		//Sending 5 KB of the file
+		if(send(sock , &fileContents , sizeof(char)*5120 , 0) < 0){
 			puts("Send Failed");
+			return -1;
+		}
+
+		// Wait for Ack
+		if(waitForAck(sock) < 0){
+			puts("Waiting for Ack from worker while sending file failed");
 			return -1;
 		}
 	}
@@ -641,7 +647,7 @@ int startIndexing(int sock){
 	//Accept incoming files and store them
 	char fileName[100];
 	int fileSize, bytesRead;
-	char buffer[1024];
+	char buffer[5120];
 	int filePresent;
 	int fileDetailStatus;
 
@@ -708,15 +714,21 @@ int startIndexing(int sock){
 		bytesRead = 0;
 		while(bytesRead < fileSize){
 
-			// Read the first 1 KB
+			// Read the first 5 KB
 			while(1){
-				if(recv(sock , &buffer , sizeof(char)*1024,0) < 0){
+				if(recv(sock , &buffer , sizeof(char)*5120,0) < 0){
 					puts("Receive File Contents Failed");
 					return -1;
 				}else{
 					//Write to file
 					fputs(buffer, fp);
 					break;
+				}
+
+				// Send Ack
+				if(sendAck(sock) < 0){
+					puts("Sending Ack on File receive failed");
+					return -1;
 				}
 			}
 
