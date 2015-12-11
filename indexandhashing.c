@@ -26,6 +26,7 @@ int checkIfLinkedListContains(struct node* root, char docNameToCheck[]);
 void findWordInHash(char c[]);
 void findMultipleWordsInHash(int numberOfWords);
 void computeDocNameIntersection();
+void computeDocNameIntersectionWithCharStar(char **finalOutput);
 void hashWordFromString(char string[]);
 void initializeConversionGlobalHashToString();
 char * convertGlobalHashIntoString();
@@ -67,7 +68,8 @@ int arrayOfStructsCounter=0;
 
 //functions for itoa
 
-char *itoa(int i)
+char *itoa(i)
+     int i;
 {
   /* Room for INT_DIGITS digits, - and '\0' */
   static char buf[INT_DIGITS + 2];
@@ -434,8 +436,9 @@ void findMultipleWordsInHash(int numberOfWords)
 		i++;
 	}
 	
-	//char *test = computeDocNameIntersectionWithCharStar();
-	//printf("Test value is : \n %s \n",test);
+	char *test;
+	computeDocNameIntersectionWithCharStar(&test);
+	printf("Test value is : \n %s \n",test);
 		
 }
 
@@ -502,7 +505,7 @@ void computeDocNameIntersection()
 	//put some check to see if at least one doc has all words
 }
 
-char * computeDocNameIntersectionWithCharStar()
+void computeDocNameIntersectionWithCharStar(char **finalOutput)
 {
 	char *output = malloc(sizeof(char)*100);
 	char tempout[100];
@@ -576,7 +579,9 @@ char * computeDocNameIntersectionWithCharStar()
 	}
 	//put some check to see if at least one doc has all words
 	
-	return strdup(output);
+	//return strdup(output);
+	*finalOutput = output;
+	free(output);
 }
 
 void hashWordFromString(char string[])
