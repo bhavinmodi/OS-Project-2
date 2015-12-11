@@ -605,7 +605,13 @@ int updateIndex(int sock){
 				return -1;
 			}
 
-			printf("Word Received is : %s",word);
+			printf("Word Received is : %s \n",word);
+			//printf("Test \n");
+			int sizeOfWord = strlen(word);
+			char stringToHash[sizeOfWord];
+			strncpy(stringToHash,word,sizeOfWord);
+			hashWordFromString(stringToHash);
+			globalHashIterate();
 		}
 	}
 
