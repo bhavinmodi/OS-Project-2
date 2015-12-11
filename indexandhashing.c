@@ -23,10 +23,10 @@ void globalHashIterate();
 void freeLocalHash();
 int hashFile(char fileName[]);
 int checkIfLinkedListContains(struct node* root, char docNameToCheck[]);
-void findWordInHash(char c[]);
+void findWordInHash(char c[],struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
 void findMultipleWordsInHash(int numberOfWords);
 void computeDocNameIntersection();
-void computeDocNameIntersectionWithCharStar(char **finalOutput);
+void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
 void hashWordFromString(char string[]);
 void initializeConversionGlobalHashToString();
 char * convertGlobalHashIntoString();
@@ -34,6 +34,7 @@ void initializeConversionLocalHashToString();
 //char * convertLocalHashIntoString(char fileName[]);
 void convertLocalHashIntoString(char fileName[], char **dest2);
 void globalHashCount();
+void sortAllSearchedWords(struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
 
 
 //Look at MEMORY tags to find out where you are statically allocating data. See if it can be dynamic.
@@ -63,8 +64,7 @@ struct node {
 int sizeOfWordBeingHashed = 50; //used to set the size of the variable "wordBeingHashed"
 int sizeOfDocName = 50;
 
-struct my_struct *arrayOfStructs[50];
-int arrayOfStructsCounter=0;
+
 
 
 //functions for itoa1
@@ -100,6 +100,15 @@ void copystring(char **first, char *second)
     strcpy(result, *first);
     strcpy(result+strlen(*first), second);
 	free(*first);
+	*first = result;
+}
+
+void copystringwithoutfree(char **first, char *second)
+{
+	//here assuming *first is a malloced thing
+    char *result = malloc(strlen(*first)+strlen(second)+1);
+    strcpy(result, *first);
+    strcpy(result+strlen(*first), second);
 	*first = result;
 }
 
@@ -241,10 +250,10 @@ void sortLinkedList(struct node* root)
     }
 }
 
-void sortAllSearchedWords()
-{
+void sortAllSearchedWords(struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter)
+{	
 	int i=0;
-	while(i<arrayOfStructsCounter)
+	while(i<*arrayOfStructsCounter)
 	{
 		sortLinkedList(arrayOfStructs[i]->root);
 		i++;
@@ -405,7 +414,7 @@ int checkIfLinkedListContains(struct node* root, char docNameToCheck[])
 	return 0;
 }
 
-void findWordInHash(char c[])
+void findWordInHash(char c[],struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter)
 {
     HASH_FIND_STR( users, c, s2);
     if (s2)
@@ -415,8 +424,8 @@ void findWordInHash(char c[])
 		
 		//int randomTest = checkIfLinkedListContains(s2->root, "bigfile.txt");
 		//printf("Value of randomTest is %d \n",randomTest);
-		arrayOfStructs[arrayOfStructsCounter] = s2;
-		arrayOfStructsCounter++;
+		arrayOfStructs[*arrayOfStructsCounter] = s2;
+		*arrayOfStructsCounter = *arrayOfStructsCounter + 1;
 		//arrayOfStructs[arrayOfStructsCounter] = createCopyStruct(s,arrayOfStructs[arrayOfStructsCounter]);
 		//arrayOfStructsCounter++;
     }
@@ -431,13 +440,14 @@ void findWordInHash(char c[])
 		// int randomTest = checkIfLinkedListContains(structtopointtoemptyvalues->root, "bigfile.txt");
 		// printf("Value of randomTest is %d \n",randomTest);
 		
-		arrayOfStructs[arrayOfStructsCounter] = structtopointtoemptyvalues;
-		arrayOfStructsCounter++;
+		arrayOfStructs[*arrayOfStructsCounter] = structtopointtoemptyvalues;
+		*arrayOfStructsCounter = *arrayOfStructsCounter + 1;
 		
     	
     }
 }
 
+/*
 void findMultipleWordsInHash(int numberOfWords)
 {
 	arrayOfStructsCounter=0;
@@ -456,9 +466,14 @@ void findMultipleWordsInHash(int numberOfWords)
 	printf("Test value is : \n %s \n",test);
 		
 }
+*/
 
+//TODO
 void findMultipleWordsInHashWithSTRTOK(char string[])
 {
+	struct my_struct *arrayOfStructs[50];
+	int arrayOfStructsCounter=0;
+	
 	char *token=NULL;
 	char *endPtr;
 	char delimiters[] = " \n";
@@ -466,15 +481,16 @@ void findMultipleWordsInHashWithSTRTOK(char string[])
 	printf("Word being searched is : %s \n",token);
         while(token!=NULL)
         {
-        	findWordInHash(token);
+        	findWordInHash(token,arrayOfStructs,&arrayOfStructsCounter);
         	token = strtok_r(NULL,delimiters,&endPtr);
         }
     printf("Going to print test \n");
 	char *test;
-	computeDocNameIntersectionWithCharStar(&test);
+	computeDocNameIntersectionWithCharStar(&test,arrayOfStructs,&arrayOfStructsCounter);
 	printf("Test value is : \n %s \n",test);
 }
 
+/*
 void computeDocNameIntersection()
 {
 	//this array gives the number of occurences related to a docName in arrayOfStructs[i]
@@ -537,23 +553,25 @@ void computeDocNameIntersection()
 	}
 	//put some check to see if at least one doc has all words
 }
-
-void computeDocNameIntersectionWithCharStar(char **finalOutput)
+*/
+void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter)
 {
+	
 	char *output = malloc(sizeof(char)*100);
+	output = " ";
 	char tempout[100];
 	
 	int rank=1;
 	
 	//this array gives the number of occurences related to a docName in arrayOfStructs[i]
-	int arrayForOccurencesEachWord[arrayOfStructsCounter+1];
+	int arrayForOccurencesEachWord[*arrayOfStructsCounter+1];
 	
-	if(arrayOfStructsCounter==0)
+	if(*arrayOfStructsCounter==0)
 	{
 		printf("Error. System has not searched for any words \n");
 	}
 	
-	sortAllSearchedWords();
+	sortAllSearchedWords(arrayOfStructs,arrayOfStructsCounter);
 	
 	struct node* primary = arrayOfStructs[0]->root;
 	
@@ -571,7 +589,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput)
 		
 		int i=1;
 		int flag=0;
-		while(i<arrayOfStructsCounter)
+		while(i<*arrayOfStructsCounter)
 		{
 			printf("i value is %d \n",i);
 			arrayForOccurencesEachWord[i] = checkIfLinkedListContains(arrayOfStructs[i]->root, docNameBeingChecked);
@@ -587,11 +605,11 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput)
 			varToCheckAtLeastOneMatch++;
 			printf("Rank %d :\n",rank);
 			sprintf(tempout,"Rank %d :\n",rank);
-			copystring(&output,tempout);
+			copystringwithoutfree(&output,tempout);
 			sprintf(tempout,"%s matches all words being searched \n",docNameBeingChecked);
 			copystring(&output,tempout);
 			int j=0;
-			while(j<arrayOfStructsCounter)
+			while(j<*arrayOfStructsCounter)
 			{
 				sprintf(tempout,"%s || %d \n",arrayOfStructs[j]->wordBeingHashed,arrayForOccurencesEachWord[j]);
 				copystring(&output,tempout);
@@ -772,7 +790,7 @@ main()
 	findMultipleWordsInHashWithSTRTOK(blah);
 	//initializeConversionHashToString();
 
-	
+	*/
 	
 	//code used to get global hash word by word
 	//************** DO NOT DELETE****************
@@ -797,7 +815,8 @@ main()
 		convertLocalHashIntoString("bigfile.txt",&word);
 		// testvar++;
 	}
-	
 }
 	*/
+
+	
 
