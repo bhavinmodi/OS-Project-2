@@ -304,18 +304,27 @@ void setDeregisteredTrue(void)
 		puts("Deregistration failed");
 	}
 
-	//write invocation to deregister function
-	//TODO: Write deregister function
 }
 
 void* deRegisterMenu(void *args)
 {
-	puts("Please enter 1 to deregister");
-	scanf("%d",&deRegistered);
-	if(deRegistered!=1)
+	char c;
+	puts("Please enter 1 to De-register");
+
+	char line[2];
+	if (fgets(line, sizeof(line), stdin)) {
+		sscanf(line, "%d", &deRegistered);
+	}
+
+	if(deRegistered != 1)
 	{
 		puts("Incorrect option");
+
+		//flushing input stream
+		while((c = getchar()) != '\n' && c != EOF);
+
 		deRegisterMenu(&deRegistered);
+		return 0;
 	}
 	setDeregisteredTrue();
 

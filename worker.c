@@ -269,12 +269,19 @@ void setDeregisteredTrue(void)
 
 void* deRegisterMenu(void *args)
 {
-	printf("Please enter 1 to deregister \n");
-	scanf("%d",&deRegistered);
-	if(deRegistered!=1)
+	char c;
+	puts("Please enter 1 to De-register");
+
+	char line[2];
+	if (fgets(line, sizeof(line), stdin)) {
+		sscanf(line, "%d", &deRegistered);
+	}
+
+	if(deRegistered != 1)
 	{
 		printf("Incorrect option \n");
 		deRegisterMenu(&deRegistered);
+		return 0;
 	}
 	setDeregisteredTrue();
 
