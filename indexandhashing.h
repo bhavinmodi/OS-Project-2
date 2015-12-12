@@ -19,13 +19,18 @@ void globalHashIterate();
 void freeLocalHash();
 int hashFile(char fileName[]);
 int checkIfLinkedListContains(struct node* root, char docNameToCheck[]);
-void findWordInHash(char c[]);
+void findWordInHash(char c[],struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
 void findMultipleWordsInHash(int numberOfWords);
 void computeDocNameIntersection();
+void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
 void hashWordFromString(char string[]);
 void initializeConversionGlobalHashToString();
-char* convertGlobalHashIntoString();
+char * convertGlobalHashIntoString();
 void initializeConversionLocalHashToString();
+//char * convertLocalHashIntoString(char fileName[]);
 void convertLocalHashIntoString(char fileName[], char **dest2);
+void globalHashCount();
+void sortAllSearchedWords(struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
+void findMultipleWordsInHashWithSTRTOK(char string[], char **finalOutput);
 
 #endif // INDEXANDHASHING_H_
