@@ -5,5 +5,6 @@ struct filelochash* createFileLocHash();
 void hashFileAndPort(char filename[], int portNumber);
 int findFileLoc(char fileLocToFind[]);
 int checkIfFileExists(char fileLocToFind[]);
+void fileLocHashIterate();
 
 #endif // FILELOCHASH_H_

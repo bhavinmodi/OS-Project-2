@@ -49,7 +49,7 @@ int findFileLoc(char fileLocToFind[])
     }
     else
     {
-    	printf("Word not found in hash \n");
+    	printf("File Name not found in hash \n");
 		return -1;
     }
 }
@@ -64,5 +64,15 @@ int checkIfFileExists(char fileLocToFind[])
     else
     {
 		return 0;
+    }
+}
+
+void fileLocHashIterate()
+{
+    struct my_struct *s;
+
+    for(s=hashforfileloc; s != NULL; s=s->hh.next) {
+        printf("File is %s :\n",s->fileName);
+		printf("Port is %d :\n",s->portNo);
     }
 }
