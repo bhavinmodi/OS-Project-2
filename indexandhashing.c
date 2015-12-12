@@ -29,7 +29,7 @@ void computeDocNameIntersection();
 void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
 void hashWordFromString(char string[]);
 void initializeConversionGlobalHashToString();
-char * convertGlobalHashIntoString();
+void convertGlobalHashIntoString(char **);
 void initializeConversionLocalHashToString();
 //char * convertLocalHashIntoString(char fileName[]);
 void convertLocalHashIntoString(char fileName[], char **dest2);
@@ -213,11 +213,11 @@ void printLinkedList(struct node* root)
 	struct node *conductor;
     conductor = root; 
     if ( conductor != 0 ) {
-		// printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
+		printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
         while ( conductor->next != 0)
         {
             conductor = conductor->next;
-			// printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
+			printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
         }
     }
 }
@@ -421,7 +421,7 @@ void findWordInHash(char c[],struct my_struct *arrayOfStructs[],int *arrayOfStru
     if (s2)
     {
     	// printf("Details in hash table for word: %s \n",c);
-		printLinkedList(s2->root);
+		// printLinkedList(s2->root);
 		
 		//int randomTest = checkIfLinkedListContains(s2->root, "bigfile.txt");
 		//printf("Value of randomTest is %d \n",randomTest);
@@ -677,57 +677,75 @@ void initializeConversionGlobalHashToString()
 	varForTransportingHash = users;
 }
 
-char * convertGlobalHashIntoString()
+void convertGlobalHashIntoString(char **dest2)
 {
 	//varForTransportingHash
-
 	if(varForTransportingHash!=NULL)
 	{
 		//TODO : Write code to convert a word and its contents into string 
 		
 		
 		//MEMORY
-		char dest[20000];
-		memset ( dest, 0, 20000 );
+		//char dest[20000];
+		//memset ( dest, 0, 20000 );
 		//char *source;
+		char *dest="\0";
 		
 		struct node *conductor;
 		
 		char *delim1 = "$";
 		char *delim2 = ":";
 		char *nullTerminator = "\0";
-
-		strcat(dest,varForTransportingHash->wordBeingHashed);
+		/*
+		int test = strlen(varForTransportingHash->wordBeingHashed);
+		printf("Test is : %d \n",test);
+		int test2 = strlen(dest);
+		printf("Test 2 is : %d \n",test2);
+		*/
+		copystringwithoutfree(&dest,varForTransportingHash->wordBeingHashed);
+		//strcat(dest,varForTransportingHash->wordBeingHashed);
 		conductor = varForTransportingHash->root; 
 		if ( conductor != 0 )
 		{
 			
-			strcat(dest,delim1);
-			strcat(dest,conductor->docName);
-			strcat(dest,delim2);
+			copystring(&dest,delim1);
+			//strcat(dest,delim1);
+			copystring(&dest,conductor->docName);
+			// strcat(dest,conductor->docName);
+			copystring(&dest,delim2);
+			// strcat(dest,delim2);
 			char *wordCount=NULL;
 			wordCount = itoa1(conductor->noOfOccurences);
-			strcat(dest,wordCount);
+			copystring(&dest,wordCount);
+			// strcat(dest,wordCount);
 			while ( conductor->next != 0)
 			{
 				conductor = conductor->next;
-				strcat(dest,delim1);
-				strcat(dest,conductor->docName);
-				strcat(dest,delim2);
+				copystring(&dest,delim1);
+				// strcat(dest,delim1);
+				copystring(&dest,conductor->docName);
+				// strcat(dest,conductor->docName);
+				copystring(&dest,delim2);
+				// strcat(dest,delim2);
 				char *wordCount=NULL;
 				wordCount = itoa1(conductor->noOfOccurences);
-				strcat(dest,wordCount);
+				copystring(&dest,wordCount);
+				// strcat(dest,wordCount);
 			}
 		}
 		
 		varForTransportingHash = varForTransportingHash->hh.next;
-		strcat(dest,nullTerminator);
-		return strdup(dest);
+		copystring(&dest,nullTerminator);
+		// strcat(dest,nullTerminator);
+		//return strdup(dest);
+		*dest2 = dest;
 	}
 	else
 	{
 		//if varForTransportingHash is null
-		return "EMPTY";
+		char *emptyList = "EMPTY";
+		//return "EMPTY";
+		*dest2 = emptyList;
 	}
 		
     // for(s=users; s != NULL; s=s->hh.next) {
@@ -746,23 +764,29 @@ void convertLocalHashIntoString(char fileName[], char **dest2)
 	if(varForTransportingLocalHash!=NULL)
 	{
 
-		char dest[2000];
-		memset ( dest, 0, 2000);
+		char *dest;
+		dest="\0";
 		
 		char *delim1 = "$";
 		char *delim2 = ":";
 		char *nullTerminator = "\0";
 
-		strcat(dest,varForTransportingLocalHash->wordBeingHashed);
-			
-		strcat(dest,delim1);
-		strcat(dest,fileName);
-		strcat(dest,delim2);
+		copystringwithoutfree(&dest,varForTransportingLocalHash->wordBeingHashed);
+		// strcat(dest,varForTransportingLocalHash->wordBeingHashed);
+		
+		copystring(&dest,delim1);		
+		// strcat(dest,delim1);
+		copystring(&dest,fileName);
+		// strcat(dest,fileName);
+		copystring(&dest,delim2);
+		// strcat(dest,delim2);
 		char *wordCount=NULL;
 		wordCount = itoa1(varForTransportingLocalHash->noOfHits);
-		strcat(dest,wordCount);
+		copystring(&dest,wordCount);
+		// strcat(dest,wordCount);
 		
-		strcat(dest,nullTerminator);
+		copystring(&dest,nullTerminator);
+		// strcat(dest,nullTerminator);
 		varForTransportingLocalHash = varForTransportingLocalHash->hh.next;
 		//return strdup(dest);
 		*dest2 = dest;
@@ -785,28 +809,32 @@ main()
 	{
 		printf("Hashing file failed \n");
 	}
-	globalHashIterate();
+	//globalHashIterate();
 	//findWordInHash("Duis");
     // findWordInHash("Droid");
 	// findMultipleWordsInHash(4);
-	char blah[] = "subscribe feeling important\n";
-	findMultipleWordsInHashWithSTRTOK(blah);
+	//char blah[] = "subscribe feeling important\n";
+	//findMultipleWordsInHashWithSTRTOK(blah);
 	//initializeConversionHashToString();
 
-	*/
+	
 	
 	//code used to get global hash word by word
 	//************** DO NOT DELETE****************
-	/*
-	word = convertHashIntoString();
+	
+	initializeConversionLocalHashToString();
+	char *word;
+	convertLocalHashIntoString("blah.txt",&word);
 	while(strcmp(word,"EMPTY")!=0)
 	{
 
 		printf("Word is : %s \n",word);
-		word = convertHashIntoString();
+		convertLocalHashIntoString("blah.txt",&word);
 		// testvar++;
 	}
 	*/
+	// printf("Done with global hash strings \n");
+	
 	/*
 	char *word=NULL;
     
@@ -818,7 +846,6 @@ main()
 		convertLocalHashIntoString("bigfile.txt",&word);
 		// testvar++;
 	}
-	
 	}
 	*/
 
