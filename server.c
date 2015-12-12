@@ -545,7 +545,7 @@ int askWorkerDirectoryForWorkerDetails(int sock, int *ip, int *port){
 	printf("Got Result = %d\n",result);
 
 	//Get IP
-	if(recv(sock , &ip , sizeof(int)*4,0) < 0){
+	if(recv(sock , ip , sizeof(int)*4,0) < 0){
 		puts("Receive IP failed");
 		close(sock);
 		return -1;
@@ -559,7 +559,7 @@ int askWorkerDirectoryForWorkerDetails(int sock, int *ip, int *port){
 	}
 
 	//Get Port
-	if(readInt(sock , &port) < 0){
+	if(readInt(sock , port) < 0){
 		puts("Receive Port failed");
 		close(sock);
 		return -1;
@@ -1257,7 +1257,7 @@ int rebuildIndex(){
 	}
 
 	//Let Worker Directory know you are the server and doing a rebuild index request
-	if(sendInt(WDsock, 3) < 0){
+	if(sendInt(WDsock, 2) < 0){
 		puts("Send connector type Server failed");
 		close(WDsock);
 		return -1;
@@ -1287,6 +1287,13 @@ int rebuildIndex(){
 			puts("Connecting to worker failed | Rebuild Index");
 
 			// Close worker directory
+			close(WDsock);
+			return -1;
+		}
+
+		//Let Worker know you are the server and doing a rebuild index request
+		if(sendInt(Wsock, 4) < 0){
+			puts("Send connector type from Server to worker rebuild failed");
 			close(WDsock);
 			return -1;
 		}

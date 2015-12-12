@@ -34,7 +34,7 @@ struct workerNode
 	struct workerNode *next;
 }*head, *curr;
 
-int readInt(int sock, int sock, int* a){
+int readInt(int sock, int* a){
 	int statusOfRead, ackValue=1, statusOfAck;
 	while(1){
 		statusOfRead = recv(sock , a , sizeof(int),0);
