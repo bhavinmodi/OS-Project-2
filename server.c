@@ -924,7 +924,7 @@ int sendFileToClient(int sock, char fileName[]){
 	return 1;
 }
 
-int searchIndex(int sock){
+int searchIndex(int sock, char keywords[]){
 
 	// TODO: Search Hash table
 
@@ -980,7 +980,7 @@ int startSearch(int sock){
 	// Acquire lock
 	mutex = 2;
 
-	if(searchIndex(sock) < 0){
+	if(searchIndex(sock, keywords) < 0){
 		puts("Searching Index failed");
 		mutex = 0;
 		return -1;
