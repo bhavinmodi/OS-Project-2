@@ -650,7 +650,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 	if(varToCheckAtLeastOneMatch==0)
 	{
 		sprintf(tempout,"No document matches the given set of words \n");
-		copystring(&output,tempout);
+		copystringwithoutfree(&output,tempout);
 	}
 	//put some check to see if at least one doc has all words
 	
@@ -832,15 +832,18 @@ main()
 	//findWordInHash("Duis");
     // findWordInHash("Droid");
 	// findMultipleWordsInHash(4);
-	//char blah[] = "subscribe feeling important\n";
-	//findMultipleWordsInHashWithSTRTOK(blah);
+	char blah[] = "subscribe feeling importan\n";
+	char *result;
+	findMultipleWordsInHashWithSTRTOK(blah,&result);
+	printf("%s \n",result);
 	//initializeConversionHashToString();
 
-	
+	*/
 	
 	//code used to get global hash word by word
 	//************** DO NOT DELETE****************
 	//printf("Blah");
+	/*
 	initializeConversionLocalHashToString();
 	char *word;
 	convertLocalHashIntoString("blah.txt",&word);
@@ -852,6 +855,7 @@ main()
 		// testvar++;
 	}
 	*/
+	
 	// printf("Done with global hash strings \n");
 	
 	/*
@@ -866,7 +870,6 @@ main()
 		// testvar++;
 	}
 	}
-	
 		}
 	*/
 
