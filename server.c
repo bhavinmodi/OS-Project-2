@@ -927,7 +927,8 @@ int sendFileToClient(int sock, char fileName[]){
 int searchIndex(int sock, char keywords[]){
 
 	// TODO: Search Hash table
-
+	char *result;
+	findMultipleWordsInHashWithSTRTOK(keywords,&result);
 	// TODO: Store results in an array
 
 	// TODO: Send the client the search result
