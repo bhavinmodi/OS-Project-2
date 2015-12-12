@@ -582,6 +582,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 	char *output = malloc(sizeof(char)*100);
 	output = " ";
 	char tempout[100];
+	char *nullTerminator = '\0';
 	
 	int rank=1;
 	
@@ -606,7 +607,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 	{
 		char docNameBeingChecked[50];
 		strncpy(docNameBeingChecked,primary->docName,50);
-		char *nullTerminator = '\0';
+		
 		
 		arrayForOccurencesEachWord[0] = checkIfLinkedListContains(arrayOfStructs[0]->root, docNameBeingChecked);
 		
