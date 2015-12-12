@@ -606,6 +606,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 	{
 		char docNameBeingChecked[50];
 		strncpy(docNameBeingChecked,primary->docName,50);
+		char *nullTerminator = '\0';
 		
 		arrayForOccurencesEachWord[0] = checkIfLinkedListContains(arrayOfStructs[0]->root, docNameBeingChecked);
 		
@@ -645,12 +646,15 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 		
 		primary=primary->next;
 	}
+	
+	copystring(&output,nullTerminator);
 	//end the loop
 	
 	if(varToCheckAtLeastOneMatch==0)
 	{
 		sprintf(tempout,"No document matches the given set of words \n");
 		copystringwithoutfree(&output,tempout);
+		copystring(&output,nullTerminator);
 	}
 	//put some check to see if at least one doc has all words
 	
