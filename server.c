@@ -300,7 +300,6 @@ int deregisterWithDirService()
 	int deregistrationStatus = 0;
 	if(readInt(sock, &deregistrationStatus) < 0){
 		puts("Deregistration failed");
-		return -1;
 	}
 
 	if(deregistrationStatus == 1)
@@ -561,7 +560,9 @@ int askWorkerDirectoryForWorkerDetails(int sock, int *ip, int *port){
 
 int getWorkerFromDirectory(char fileName[100]){
 
-		int sock = connectToWorkerDirectory();
+		int sock;
+
+		sock = connectToWorkerDirectory();
 
 		if(sock < 0){
 			puts("Failed to connect to worker directory");
@@ -1131,12 +1132,7 @@ void *connection_handler(void *socket_desc)
 			while(1){
 				//initializing new while to look for choice value
 				if(readInt(sock, &choice) < 0){
-					if(choice == 3){
-						// Ping request Closure
-						puts("Connection closed by directory");
-					}else{
-						puts("Receive Choice Failed | Maybe Client disconnected");
-					}
+					puts("Receive Choice Failed | Maybe Client disconnected");
 					return 0;
 				}else{
 					printf("Choice is = %d\n",choice);
@@ -1161,6 +1157,13 @@ void *connection_handler(void *socket_desc)
 					}else{
 						puts("Search Successful");
 					}
+					break;
+				case 3:
+					// This is an exit request
+					//Free the socket pointer
+					close(sock);
+					free(socket_desc);
+					return 0;
 					break;
 				default:
 					printf("Invalid Choice %d\n",choice);

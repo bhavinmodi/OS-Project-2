@@ -739,6 +739,10 @@ int clientInput(int sock){
 	}
 	case 3:
 		//Exit
+		//Let the server know this is an exit request
+		if(sendInt(sock, 3) < 0){
+			puts("Exit Request Failed");
+		}
 		return -1;
 	default:
 		// Invalid Option, wait for a valid response

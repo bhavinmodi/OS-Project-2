@@ -281,7 +281,6 @@ int deregisterWithDirService()
 	int deregistrationStatus = 0;
 	if(readInt(sock, &deregistrationStatus) < 0){
 		puts("Deregistration failed");
-		return -1;
 	}
 
 	if(deregistrationStatus == 1)
