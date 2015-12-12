@@ -371,12 +371,30 @@ int hashFile(char fileName[])
 		return 0;
 	}
 	
+ //New function to read file
+    char x[1024];
+	char *rEndPtr;
+    /* assumes no word exceeds length of 1023 */
+    while (fscanf(fp, " %1023s", x) == 1) {
+        //puts(x);
+		token = strtok_r(x, delimiters,&rEndPtr);
+        while(token!=NULL)
+        {
+            //printf("Token : %s \n",token);
+            hashWordIntoLocalHash(token);
+            token = strtok_r(NULL, delimiters,&rEndPtr);
+        }
+    }
+
+	
+	
     // Read file
+	/*
     while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
         //Sending 1 KB of the file
-        // printf("Line : \n");
-        // printf("%s\n",fileContents);
-        // printf("Tokens : \n");
+        printf("Line : \n");
+        printf("%s\n",fileContents);
+        printf("Tokens : \n");
         token = strtok (fileContents, delimiters);
         while(token!=NULL)
         {
@@ -385,6 +403,7 @@ int hashFile(char fileName[])
             token = strtok (NULL, delimiters);
         }
     }
+	*/
     
     //LocalHashIterate();
 	//TODO : Add function to send relevant data to server
@@ -821,7 +840,7 @@ main()
 	
 	//code used to get global hash word by word
 	//************** DO NOT DELETE****************
-	
+	//printf("Blah");
 	initializeConversionLocalHashToString();
 	char *word;
 	convertLocalHashIntoString("blah.txt",&word);
@@ -847,7 +866,10 @@ main()
 		// testvar++;
 	}
 	}
+	
+		}
 	*/
+
 
 	
 
