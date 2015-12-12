@@ -98,6 +98,48 @@ int readInt(int sock, int* a){
 	return 1;
 }
 
+int sendString(int sock, int a, char *b){
+	int statusOfSend, ackValue=1, statusOfAck;
+	statusOfSend = send(sock , b , sizeof(char)*a , 0);
+	if(statusOfSend < 0){
+		puts("Send Failed");
+		return -1;
+	}
+	while(1){
+		statusOfAck = recv(sock , &ackValue , sizeof(int),0);
+		if(statusOfAck < 0){
+			puts("Send Failed");
+			return -1;
+		}else{
+			if(ackValue == 1){
+				return 1;
+			}else{
+				puts("Send Failed");
+				return -1;
+			}
+		}
+	}
+}
+
+int readString(int sock, int a, char *b){
+	int statusOfRead, ackValue=1, statusOfAck;
+	while(1){
+		statusOfRead = recv(sock , b , sizeof(char)*a,0);
+		if(statusOfRead < 0){
+			puts("Receive Failed");
+			return -1;
+		}else{
+			break;
+		}
+	}
+	statusOfAck = send(sock , &ackValue , sizeof(int) , 0);
+	if(statusOfAck < 0){
+		puts("Receive Failed");
+		return -1;
+	}
+	return 1;
+}
+
 int getServerFromDirectory(int *ip, int *port){
 
 		//Initialize variables
@@ -388,6 +430,71 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 	return 1;
 }
 
+int waitForSearchResult(int sock){
+
+	// TODO: Get result of search from server
+
+	// Select which file you want from the result
+	char c;
+
+	//flushing input stream
+	while((c = getchar()) != '\n' && c != EOF);
+
+	char answer[100];
+	printf("Which File do you want to retrieve: ");
+	fgets(answer, sizeof(answer), stdin);
+
+	// Send the file to retrieve
+	if(sendString(sock, 100, &answer[0]) < 0){
+		puts("Sending Retrieve request failed.");
+		return -1;
+	}
+
+	// Receive the file size
+	int fileSize = 0;
+	// Get the file size
+	if(readInt(sock, &fileSize) < 0){
+		puts("Receiving file size from server failed.");
+		return -1;
+	}
+
+	// Initialize file
+	FILE *fp;
+	fp = fopen(answer, "w+");
+
+	if(fp == NULL){
+		printf("%s : Error opening file",answer);
+		return -1;
+	}
+
+	// Get File
+	int bytesRead = 0;
+	char buffer[1024];
+
+	while(bytesRead < fileSize){
+
+		// Read the first 1 KB
+		if(readString(sock, 1024, &buffer) < 0){
+			puts("Failed receiving file contents.");
+			return -1;
+		}
+
+		// Add bytes read from length of buffer
+		bytesRead = bytesRead + strlen(buffer);
+
+		//printf("Length of buffer read for file = %d\n",bytesRead);
+	}
+
+	if(sendAck(sock) < 0){
+		return -1;
+	}
+
+	// Close the file
+	fclose(fp);
+
+	return 1;
+}
+
 int clientInput(int sock){
 
 	int choice = -1;
@@ -587,14 +694,15 @@ int clientInput(int sock){
 		}
 
 		// Send the string across
-		if(send(sock , &keywords[0] , sizeof(char)*100 , 0) < 0){
+		if(sendString(sock, 100, &keywords[0]) < 0){
 			puts("Sending keywords failed");
-			return -1;
 		}
 
-		if(waitForAck(sock) < 0){
-			return -1;
+		// Wait for result
+		if(waitForSearchResult(sock) < 0){
+			puts("Search Result from server failed.");
 		}
+
 		break;
 	}
 	case 3:

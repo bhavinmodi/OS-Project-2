@@ -114,6 +114,25 @@ int sendString(int sock, int a, char *b){
 	}
 }
 
+int readString(int sock, int a, char *b){
+	int statusOfRead, ackValue=1, statusOfAck;
+	while(1){
+		statusOfRead = recv(sock , b , sizeof(char)*a,0);
+		if(statusOfRead < 0){
+			puts("Receive Failed");
+			return -1;
+		}else{
+			break;
+		}
+	}
+	statusOfAck = send(sock , &ackValue , sizeof(int) , 0);
+	if(statusOfAck < 0){
+		puts("Receive Failed");
+		return -1;
+	}
+	return 1;
+}
+
 int registerWithDirService()
 {
 	// Register the server with the directory service
@@ -598,34 +617,91 @@ int startIndexing(int sock){
 	return 1;
 }
 
-int startSearch(int sock){
+int sendFileToServer(int sock, char fileName[100]){
+	// Searching request to worker
 
-	char keywords[100];
+	//Sending 1KB at a time
+	char fileContents[1024];
 
-	// Receive keywords
-	if(recv(sock, &keywords, sizeof(char)*100, 0) < 0){
+	// Find out file size
+	int size;
+	struct stat s;
+
+	if(stat(fileName, &s) == 0){
+		size = s.st_size;
+	}
+
+	printf("File Size = %d\n",size);
+
+	// Open file
+	FILE *fp;
+
+	fp = fopen(fileName, "r");
+
+	if(fp == NULL){
+		printf("%s : Error opening file\n",fileName);
 		return -1;
 	}
 
-	// Send Ack
-	if(sendAck(sock) < 0){
+	//Send File size
+	if(sendInt(sock, size) < 0){
+		puts("Send File Size Failed");
 		return -1;
 	}
 
-	// TODO: Perform search
-	if(mutex  == 0){
-		mutex = 1;
-		// TODO: Perform search
-		mutex = 0;
-	}else{
-		while(mutex == 1){
-			// Wait
+	puts("File Size Sent");
+
+	// Read file
+	while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
+		//Sending 1 KB of the file
+		if(send(sock , &fileContents , sizeof(char)*1024 , 0) < 0){
+			puts("Send Failed");
+			return -1;
 		}
 
-		mutex = 1;
-		// TODO: Perform search
-		mutex = 0;
+		// Wait for Ack
+		if(waitForAck(sock) < 0){
+			puts("Waiting for Ack from server while sending file failed");
+			return -1;
+		}
 	}
+
+	puts("File Sent");
+
+	if(waitForAck(sock) < 0){
+		return -1;
+	}
+
+	// Close file
+	fclose(fp);
+
+	return 1;
+}
+
+int startSearch(int sock){
+
+	char fileName[100];
+
+	// Receive FileName
+	if(readString(sock, 100, fileName) < 0){
+		puts("Receiving fileName from server for searching failed.");
+		return -1;
+	}
+
+	while(mutex == 1){
+		// Wait
+	}
+
+	// Accquire Lock
+	mutex = 1;
+
+	if(sendFileToServer(sock, fileName) < 0){
+		puts("Sending file to server failed.");
+		mutex = 0;
+		return -1;
+	}
+
+	mutex = 0;
 
 	return 1;
 }
@@ -655,21 +731,14 @@ void *connection_handler(void *socket_desc)
 			// This is an indexing request
 			if(startIndexing(sock) < 0){
 				puts("Indexing Failed | Closing connection");
-				return 0;
 			}else{
 				puts("Indexing Successful");
-				return 0;
 			}
 			break;
 		case 2:
 			// This is a searching request
 			if(startSearch(sock) < 0){
 				puts("Search Failed | Closing Connection");
-
-				//Free the socket pointer
-				close(sock);
-				free(socket_desc);
-				return 0;
 			}else{
 				puts("Search Successful");
 			}

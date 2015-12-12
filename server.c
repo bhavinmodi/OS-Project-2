@@ -6,6 +6,7 @@
  */
 
 #include "indexandhashing.h"
+#include "filelochash.h"
 #include<stdio.h>
 #include<string.h>    //strlen
 #include<stdlib.h>    //strlen
@@ -114,6 +115,29 @@ int readInt(int sock, int* a){
 		return -1;
 	}
 	return 1;
+}
+
+int sendString(int sock, int a, char *b){
+	int statusOfSend, ackValue=1, statusOfAck;
+	statusOfSend = send(sock , b , sizeof(char)*a , 0);
+	if(statusOfSend < 0){
+		puts("Send Failed");
+		return -1;
+	}
+	while(1){
+		statusOfAck = recv(sock , &ackValue , sizeof(int),0);
+		if(statusOfAck < 0){
+			puts("Send Failed");
+			return -1;
+		}else{
+			if(ackValue == 1){
+				return 1;
+			}else{
+				puts("Send Failed");
+				return -1;
+			}
+		}
+	}
 }
 
 int readString(int sock, int a, char *b){
@@ -419,31 +443,7 @@ int sendFileToWorker(int sock, char fileName[100]){
 	return 1;
 }
 
-int sendKeywordsToWorker(int sock, char keywords[100]){
-
-	// Run setup at worker
-	// Searching request to worker
-	if(sendInt(sock, 2) < 0){
-		puts("Search request to worker failed");
-		return -1;
-	}
-
-	//Send Keywords
-	if(send(sock , &keywords[0] , sizeof(char)*100 , 0) < 0){
-		puts("Send Keywords Failed");
-		return -1;
-	}
-
-	puts("Keywords Sent");
-
-	if(waitForAck(sock) < 0){
-		return -1;
-	}
-
-	return 1;
-}
-
-int getWorkerFromDirectory(char fileName[100], int op){
+int getWorkerFromDirectory(char fileName[100]){
 
 		//Initialize variables
 		int sock, result;
@@ -566,30 +566,12 @@ int getWorkerFromDirectory(char fileName[100], int op){
 		//Connected to Remote Worker
 		puts("Remote Worker Connected");
 
-		// call function depending on Op
-		switch(op){
-		case 1:
-			// Send the file to a worker node for indexing
-			if(sendFileToWorker(sock, fileName) < 0){
-				printf("%s : Send To Worker Failed\n",fileName);
-				return -1;
-			}else{
-				printf("%s : Sent to Worker\n",fileName);
-			}
-			break;
-		case 2:
-			// Send the file to a worker node for searching
-			// variable is called fileName, but it has keywords
-			if(sendKeywordsToWorker(sock, fileName) < 0){
-				printf("%s : Send To Worker Failed\n",fileName);
-				return -1;
-			}else{
-				printf("%s : Sent to Worker\n",fileName);
-			}
-			break;
-		default:
-			puts("Invalid Operation for worker");
+		// Send the file to a worker node for indexing
+		if(sendFileToWorker(sock, fileName) < 0){
+			printf("%s : Send To Worker Failed\n",fileName);
 			return -1;
+		}else{
+			printf("%s : Sent to Worker\n",fileName);
 		}
 
 		// Close connection to worker
@@ -748,7 +730,7 @@ int startIndexing(int sock){
 
 		// Ask workerDirectory for worker and send it the file and do the indexing
 		puts("Asking for worker from Worker Directory");
-		if(getWorkerFromDirectory(fileName, 1) < 0){
+		if(getWorkerFromDirectory(fileName) < 0){
 			puts("Worker Directory | Worker Not Found");
 
 			// Let the client know of indexing failure
@@ -768,7 +750,205 @@ int startIndexing(int sock){
 	return 1;
 }
 
-int searchIndex(){
+int requestFileFromWorker(int port, char fileName[]){
+	// Connect to the worker
+	struct sockaddr_in worker;
+	int sock;
+
+	// Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1) {
+		puts("Could not create socket");
+		return -1;
+	}
+
+	puts("Socket created");
+
+	//Now setup Worker connection
+	worker.sin_addr.s_addr = inet_addr("127.0.0.1");
+	worker.sin_family = AF_INET;
+	worker.sin_port = htons(port);
+	printf("Port it is trying to connect to is %d \n",port);
+
+	//Connect to Remote Worker
+	puts("Trying to connect to Remote Worker");
+	int connected = 1;
+	while(connected == 1){
+		connected = connect(sock , (struct sockaddr *)&worker , sizeof(worker));
+	}
+
+	if(connected < 0){
+		puts("Connection to worker failed");
+		return -1;
+	}
+
+	//Connected to Remote Worker
+	puts("Remote Worker Connected");
+
+	// Tell the worker you are the server and connecting for search
+	if(sendInt(sock, 2) < 0){
+		puts("Sending Request type to worker failed.");
+
+		// Close Socket
+		close(sock);
+		return -1;
+	}
+
+	// Send FileName you are requesting
+	if(sendString(sock, 100, &fileName[0]) < 0){
+		puts("Sending file Name for searching to worker failed.");
+
+		// Close Socket
+		close(sock);
+		return -1;
+	}
+
+	int fileSize = 0;
+	// Get the file size
+	if(readInt(sock, &fileSize) < 0){
+		puts("Receiving file size from worker failed.");
+		return -1;
+	}
+
+	// Initialize file
+	FILE *fp;
+	fp = fopen(fileName, "w+");
+
+	if(fp == NULL){
+		printf("%s : Error opening file",fileName);
+		return -1;
+	}
+
+	// Get File
+	int bytesRead = 0;
+	char buffer[1024];
+
+	while(bytesRead < fileSize){
+
+		// Read the first 1 KB
+		while(1){
+			if(recv(sock , &buffer , sizeof(char)*1024,0) < 0){
+				puts("Receive File Contents Failed");
+				return -1;
+			}else{
+				//Write to file
+				fputs(buffer, fp);
+				break;
+			}
+		}
+
+		if(sendAck(sock) < 0){
+			puts("Sending Ack on File receive failed");
+			return -1;
+		}
+
+		// Add bytes read from length of buffer
+		bytesRead = bytesRead + strlen(buffer);
+
+		//printf("Length of buffer read for file = %d\n",bytesRead);
+	}
+
+	if(sendAck(sock) < 0){
+		return -1;
+	}
+
+	// Close Socket and file
+	fclose(fp);
+	close(sock);
+
+	return 1;
+}
+
+int sendFileToClient(int sock, char fileName[]){
+	//Sending 1KB at a time
+	char fileContents[1024];
+
+	// Find out file size
+	int size;
+	struct stat s;
+
+	if(stat(fileName, &s) == 0){
+		size = s.st_size;
+	}
+
+	printf("File Size = %d\n",size);
+
+	// Open file
+	FILE *fp;
+
+	fp = fopen(fileName, "r");
+
+	if(fp == NULL){
+		printf("%s : Error opening file\n",fileName);
+		return -1;
+	}
+
+	//Send File size
+	if(sendInt(sock, size) < 0){
+		puts("Send File Size Failed");
+		return -1;
+	}
+
+	puts("File Size Sent");
+
+	// Read file
+	while(fgets(fileContents, 1024, (FILE*)fp) != NULL){
+		//Sending 1 KB of the file
+		if(sendString(sock, 1024, &fileContents[0]) < 0){
+			puts("Failed to send file contents to client.");
+			return -1;
+		}
+	}
+
+	puts("File Sent");
+
+	if(waitForAck(sock) < 0){
+		return -1;
+	}
+
+	// Close file
+	fclose(fp);
+
+	// Delete file on Server
+	int ret = remove(fileName);
+
+	if(ret == 0) {
+	  puts("File deleted successfully");
+	}else {
+	  puts("Error: unable to delete the file");
+	  return -1;
+	}
+
+	return 1;
+}
+
+int searchIndex(int sock){
+
+	// TODO: Search Hash table
+
+	// TODO: Store results in an array
+
+	// TODO: Send the client the search result
+
+	// Get from client which file he wants
+	char requestedFile[100];
+	if(readString(sock, 100, &requestedFile[0]) < 0){
+		puts("Failed to receive requested fileName from result from client.");
+		return -1;
+	}
+
+	// TODO: Get Files from worker depending on result of search
+	/*if(requestFileFromWorker(port, requestedFile) < 0){
+		puts("requestFileFromWorker Failed");
+		return -1;
+	}*/
+
+	// Send the requested file to the client
+	if(sendFileToClient(sock, requestedFile) < 0){
+		puts("sendFileToClient Failed.");
+		return -1;
+	}
+
 	return 1;
 }
 
@@ -777,8 +957,13 @@ int startSearch(int sock){
 	char keywords[100];
 
 	// Receive keywords
-	if(recv(sock, &keywords, sizeof(char)*100, 0) < 0){
-		return -1;
+	while(1){
+		if(recv(sock, &keywords, sizeof(char)*100, 0) < 0){
+			puts("Receive Keywords failed");
+			return -1;
+		}else{
+			break;
+		}
 	}
 
 	// Send Ack
@@ -786,32 +971,20 @@ int startSearch(int sock){
 		return -1;
 	}
 
-	// TODO: Perform search
-	if(mutex == 0 || mutex == 2){
-		mutex = 2;
-		if(searchIndex() < 0){
-			puts("Searching Index failed");
-			mutex = 0;
-			return -1;
-		}
-		mutex = 0;
-	}else{
-		while(mutex == 1){
-			// Wait
-		}
-
-		// Acquire lock
-		mutex = 2;
-		if(searchIndex() < 0){
-			puts("Searching Index failed");
-			mutex = 0;
-			return -1;
-		}
-		mutex = 0;
+	while(mutex == 1){
+		//wait
 	}
 
-	// TODO: Get Files from worker depending on result of search
-	//getWorkerFromDirectory(keywords, 2);
+	// Acquire lock
+	mutex = 2;
+
+	if(searchIndex(sock) < 0){
+		puts("Searching Index failed");
+		mutex = 0;
+		return -1;
+	}
+
+	mutex = 0;
 
 	return 1;
 }
@@ -870,11 +1043,6 @@ void *connection_handler(void *socket_desc)
 					// This is a searching request
 					if(startSearch(sock) < 0){
 						puts("Search Failed | Closing Connection");
-
-						//Free the socket pointer
-						close(sock);
-						free(socket_desc);
-						return 0;
 					}else{
 						puts("Search Successful");
 					}
@@ -942,8 +1110,7 @@ void *connection_handler(void *socket_desc)
 int main(int argc , char *argv[])
 {
 	// Register with directory service
-	if(registerWithDirService() < 0)
-	{
+	if(registerWithDirService() < 0) {
 		puts("Directory Registry Failed");
 		return 1;
 	}
