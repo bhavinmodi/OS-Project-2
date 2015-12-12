@@ -566,6 +566,8 @@ int getWorkerFromDirectory(char fileName[100]){
 		//Connected to Remote Worker
 		puts("Remote Worker Connected");
 
+		hashFileAndPort(fileName,port);
+		
 		// Send the file to a worker node for indexing
 		if(sendFileToWorker(sock, fileName) < 0){
 			printf("%s : Send To Worker Failed\n",fileName);
