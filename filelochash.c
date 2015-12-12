@@ -50,7 +50,7 @@ int findFileLoc(char fileLocToFind[])
     else
     {
     	printf("Word not found in hash \n");
-		return 0;
+		return -1;
     }
 }
 

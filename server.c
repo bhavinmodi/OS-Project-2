@@ -955,12 +955,18 @@ int searchIndex(int sock, char keywords[]){
 		puts("Failed to receive requested fileName from result from client.");
 		return -1;
 	}
+	
+	int portNumber = findFileLoc(requestedFile);
+	if(portNumber<0)
+	{
+		//TODO: Fill what to do when file doesnt exist in hash
+	}
 
 	// TODO: Get Files from worker depending on result of search
-	/*if(requestFileFromWorker(port, requestedFile) < 0){
+	if(requestFileFromWorker(port, requestedFile) < 0){
 		puts("requestFileFromWorker Failed");
 		return -1;
-	}*/
+	}
 
 	// Send the requested file to the client
 	if(sendFileToClient(sock, requestedFile) < 0){
