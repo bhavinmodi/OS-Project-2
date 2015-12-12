@@ -434,11 +434,9 @@ int runWorkerLookup(int sock){
 	//Find the worker and send the IP and Port to the tiny google server
 	struct workerNode *ptr = lockerForWorkerLookup();
 
-	int requestResult;
 	if(ptr == NULL){
 		//Send Worker not Found
-		requestResult = 0;
-		if(send(sock, &requestResult, sizeof(requestResult), 0) < 0){
+		if(sendInt(sock, 0) < 0){
 			puts("Send Query result Failed");
 			return -1;
 		}

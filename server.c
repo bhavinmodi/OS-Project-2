@@ -431,15 +431,6 @@ int sendFileToWorker(int sock, char fileName[100]){
 	// Close file
 	fclose(fp);
 
-	int ret = remove(fileName);
-
-    if(ret == 0) {
-	  puts("File deleted successfully");
-    }else {
-	  puts("Error: unable to delete the file");
-	  return -1;
-    }
-
 	return 1;
 }
 
@@ -606,9 +597,6 @@ int getWorkerFromDirectory(char fileName[100]){
 			return -1;
 		}
 
-		// Add the file to a has table table to know which worker got it
-		hashFileAndPort(fileName,port);
-		
 		//fileLocHashIterate();
 
 		// Send the file to a worker node for indexing
@@ -618,6 +606,9 @@ int getWorkerFromDirectory(char fileName[100]){
 		}else{
 			printf("%s : Sent to Worker\n",fileName);
 		}
+
+		// Add the file to a has table table to know which worker got it
+		hashFileAndPort(fileName,port);
 
 		//Successful
 		// Close connection to worker
@@ -670,6 +661,16 @@ int updateIndex(int sock){
 	mutex = 0;
 
 	return 1;
+}
+
+void deleteFile(char fileName[]){
+	int ret = remove(fileName);
+
+	if(ret == 0) {
+	  puts("File deleted successfully");
+	}else {
+	  puts("Error: unable to delete the file");
+	}
 }
 
 int startIndexing(int sock){
@@ -795,6 +796,7 @@ int startIndexing(int sock){
 		}
 
 		if(sendAck(sock) < 0){
+			deleteFile(fileName);
 			return -1;
 		}
 
@@ -806,12 +808,18 @@ int startIndexing(int sock){
 		if(getWorkerFromDirectory(fileName) < 0){
 			puts("Worker Directory | Worker Not Found");
 
+			// Delete file
+			deleteFile(fileName);
+
 			// Let the client know of indexing failure
 			if(sendInt(sock, -1) < 0){
 				puts("Letting the client know that the server could not find the directory : failure");
 			}
 			return -1;
 		}else{
+			// Delete file
+			eleteFile(fileName);
+
 			// Let the client know that the worker got the file
 			if(sendInt(sock, 1) < 0){
 				puts("Letting the client know that the worker got the file : failure");
@@ -1011,6 +1019,8 @@ int searchIndex(int sock, char keywords[]){
 
 	// Send the client the search result
 	int sizeOfResult = strlen(result);
+
+	printf("Result = %d\n",result);
 
 	// Send result size
 	if(sendInt(sock, sizeOfResult) < 0){
