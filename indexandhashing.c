@@ -775,7 +775,7 @@ void convertLocalHashIntoString(char fileName[], char **dest2)
 	}
 }
 
-
+/*
 main()
 {
 	structtopointtoemptyvalues = createmy_structForEmptyValues();
@@ -793,7 +793,7 @@ main()
 	findMultipleWordsInHashWithSTRTOK(blah);
 	//initializeConversionHashToString();
 
-	
+	*/
 	
 	//code used to get global hash word by word
 	//************** DO NOT DELETE****************
@@ -818,7 +818,9 @@ main()
 		convertLocalHashIntoString("bigfile.txt",&word);
 		// testvar++;
 	}
+	
+	}
 	*/
-}
+
 	
 
