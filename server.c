@@ -443,44 +443,143 @@ int sendFileToWorker(int sock, char fileName[100]){
 	return 1;
 }
 
+int connectToWorkerDirectory(){
+	//Initialize variables
+	int sock;
+	struct sockaddr_in server;
+
+	//Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1)
+	{
+		puts("Could not create socket");
+		return -1;
+	}
+	puts("Socket created");
+
+	// Connect to Worker Directory Register and get ip and port for service
+	server.sin_addr.s_addr = inet_addr(WorkerDirectoryIP);
+	server.sin_family = AF_INET;
+	server.sin_port = htons(WorkerDirectoryPort);
+
+	// Connect to Worker Directory Service
+	puts("Trying to connect to Worker Directory Service");
+	int connected = 1;
+	while(connected == 1){
+		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	}
+
+	if(connected < 0){
+		puts("Worker Directory Not Present");
+		return -1;
+	}
+
+	// Connected to Worker Directory Service
+	puts("Connected to Worker Directory");
+
+	return sock;
+}
+
+int connectToWorker(int ip[], int port){
+	//Initialize variables
+	int sock;
+	struct sockaddr_in server;
+
+	//Convert ip to string
+	char address[50];
+	sprintf(address, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+
+	//Trim the char array
+	printf("The address we have is %s \n",address);
+
+	//Create socket
+	sock = socket(AF_INET , SOCK_STREAM , 0);
+	if (sock == -1)
+	{
+		puts("Could not create socket");
+		return -1;
+	}
+	puts("Socket created");
+
+	//Now setup Worker connection
+	server.sin_addr.s_addr = inet_addr(address);
+	server.sin_family = AF_INET;
+	server.sin_port = htons( port );
+	printf("Port it is trying to connect to is %d \n",port);
+
+	//Connect to Remote Worker
+	puts("Trying to connect to Remote Worker");
+	int connected = 1;
+	while(connected == 1){
+		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	}
+
+	if(connected < 0){
+		puts("Connection to worker failed");
+		return -1;
+	}
+
+	//Connected to Remote Worker
+	puts("Remote Worker Connected");
+
+	return sock;
+}
+
+int askWorkerDirectoryForWorkerDetails(int sock, int *ip, int *port){
+
+	int result;
+
+	//Get Status of Worker Found or Not
+	if(readInt(sock, &result) < 0){
+		puts("Receive Query Result failed");
+		close(sock);
+		return -1;
+	}else{
+		if(result == 0){
+			puts("Worker Not Found");
+			close(sock);
+			return -2;
+		}
+	}
+
+	printf("Got Result = %d\n",result);
+
+	//Get IP
+	if(recv(sock , &ip , sizeof(int)*4,0) < 0){
+		puts("Receive IP failed");
+		close(sock);
+		return -1;
+	}
+
+	//Send the ACK
+	if(sendAck(sock) < 0){
+		puts("Send ACK failed");
+		close(sock);
+		return -1;
+	}
+
+	//Get Port
+	if(readInt(sock , &port) < 0){
+		puts("Receive Port failed");
+		close(sock);
+		return -1;
+	}
+
+	return 1;
+}
+
 int getWorkerFromDirectory(char fileName[100]){
 
-		//Initialize variables
-		int sock, result;
-		struct sockaddr_in server;
+		int sock = connectToWorkerDirectory();
+
+		if(sock < 0){
+			puts("Failed to connect to worker directory");
+			return -1;
+		}
 
 		//Send Lookup Request
 		int ip[4];
 		int port;
-
-		//Create socket
-	    sock = socket(AF_INET , SOCK_STREAM , 0);
-	    if (sock == -1)
-	    {
-	        puts("Could not create socket");
-			return -1;
-	    }
-	    puts("Socket created");
-
-		// Connect to Worker Directory Register and get ip and port for service
-		server.sin_addr.s_addr = inet_addr(WorkerDirectoryIP);
-	    server.sin_family = AF_INET;
-	    server.sin_port = htons(WorkerDirectoryPort);
-
-		// Connect to Worker Directory Service
-		puts("Trying to connect to Worker Directory Service");
-		int connected = 1;
-		while(connected == 1){
-	    	connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
-		}
-
-		if(connected < 0){
-			puts("Worker Directory Not Present");
-			return -1;
-		}
-
-		// Connected to Worker Directory Service
-	    puts("Connected to Worker Directory");
 
 		//Let Worker Directory know you are the server
 		if(sendInt(sock, 0) < 0){
@@ -489,39 +588,9 @@ int getWorkerFromDirectory(char fileName[100]){
 			return -1;
 		}
 
-		//Get Status of Worker Found or Not
-		if(readInt(sock, &result) < 0){
-			puts("Receive Query Result failed");
-			close(sock);
-			return -1;
-		}else{
-			if(result == 0){
-				puts("Worker Not Found");
-				close(sock);
-				return -1;
-			}
-		}
-
-		printf("Got Result = %d\n",result);
-
-		//Get IP
-		if(recv(sock , &ip , sizeof(int)*4,0) < 0){
-			puts("Receive IP failed");
-			close(sock);
-			return -1;
-		}
-
-		//Send the ACK
-		if(sendAck(sock) < 0){
-			puts("Send ACK failed");
-			close(sock);
-			return -1;
-		}
-
-		//Get Port
-		if(readInt(sock , &port) < 0){
-			puts("Receive Port failed");
-			close(sock);
+		int result = askWorkerDirectoryForWorkerDetails(sock, &ip[0], &port);
+		if(result < 0){
+			puts("Worker Not Found | Failed to get worker ip and port from worker directory");
 			return -1;
 		}
 
@@ -529,46 +598,18 @@ int getWorkerFromDirectory(char fileName[100]){
 		//Close connection to Worker Directory Service
 		close(sock);
 
-		//Convert ip to string
-		char address[50];
-		sprintf(address, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+		// Connect to worker
+		sock = connectToWorker(ip, port);
 
-		//Trim the char array
-		printf("The address we have is %s \n",address);
-
-		//Create socket
-		sock = socket(AF_INET , SOCK_STREAM , 0);
-		if (sock == -1)
-		{
-			puts("Could not create socket");
-			return -1;
-		}
-		puts("Socket created");
-
-		//Now setup Worker connection
-		server.sin_addr.s_addr = inet_addr(address);
-		server.sin_family = AF_INET;
-		server.sin_port = htons( port );
-		printf("Port it is trying to connect to is %d \n",port);
-
-		//Connect to Remote Worker
-		puts("Trying to connect to Remote Worker");
-		connected = 1;
-		while(connected == 1){
-			connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
-		}
-
-		if(connected < 0){
-			puts("Connection to worker failed");
+		if(sock < 1){
+			puts("Connect To Worker failed");
 			return -1;
 		}
 
-		//Connected to Remote Worker
-		puts("Remote Worker Connected");
-
+		// Add the file to a has table table to know which worker got it
 		hashFileAndPort(fileName,port);
 		
-		fileLocHashIterate();
+		//fileLocHashIterate();
 
 		// Send the file to a worker node for indexing
 		if(sendFileToWorker(sock, fileName) < 0){
@@ -578,6 +619,7 @@ int getWorkerFromDirectory(char fileName[100]){
 			printf("%s : Sent to Worker\n",fileName);
 		}
 
+		//Successful
 		// Close connection to worker
 		close(sock);
 
@@ -1162,8 +1204,119 @@ void *connection_handler(void *socket_desc)
 	return 0;
 }
 
+int rebuild(int sock, int port){
+	// Receive all file names from workers
+	char fileName[100];
+	int indicator;
+
+	while(1){
+		// Receive indicator if there are more file names
+		if(readInt(sock, &indicator) < 0){
+			puts("Failed to receive indicator if more file names are to be sent");
+			return -1;
+		}
+
+		if(indicator < 0){
+			if(indicator == -2){
+				// Worker failed
+				puts("Worker had a path reading error");
+			}else{
+				// Done receiving file names
+				puts("Done receiving file names");
+			}
+			break;
+		}
+
+		// Receive file name
+		if(readString(sock, 100, &fileName[0]) < 0){
+			puts("Receive file name from worker failed");
+			return -1;
+		}
+
+		// Hash File name, Add the file to a has table table to know which worker got it
+		hashFileAndPort(fileName,port);
+	}
+
+	// Receive index from worker
+	if(updateIndex(sock) < 0){
+		puts("Failed to receive index from worker");
+		return -1;
+	}
+
+	return 1;
+}
+
+int rebuildIndex(){
+
+	// Connect to Worker Directory
+	int WDsock = connectToWorkerDirectory();
+
+	if(WDsock < 1){
+		puts("Failed to connect to worker directory");
+		return -1;
+	}
+
+	//Let Worker Directory know you are the server and doing a rebuild index request
+	if(sendInt(WDsock, 3) < 0){
+		puts("Send connector type Server failed");
+		close(WDsock);
+		return -1;
+	}
+
+	int ip[4];
+	int port, result;
+	int Wsock;
+
+	// Getting workers one at a time
+	while(1){
+		// Get details of Worker
+		result = askWorkerDirectoryForWorkerDetails(WDsock, &ip[0], &port);
+		if(result < 0){
+			if(result == -2){
+				puts("No more workers");
+				break;
+			}
+
+			puts("Failed to get worker details");
+			return -1;
+		}
+
+		// Connect to worker
+		Wsock = connectToWorker(ip,port);
+		if(Wsock < 0){
+			puts("Connecting to worker failed | Rebuild Index");
+
+			// Close worker directory
+			close(WDsock);
+			return -1;
+		}
+
+		// Ask Worker for Index and all files
+		result = rebuild(Wsock, port);
+		if(result < 0){
+			puts("Rebuilding Request for Worker failed");
+			// Close sockets
+			close(WDsock);
+			close(Wsock);
+			return -1;
+		}
+
+	}
+
+	// Close sockets
+	close(WDsock);
+	close(Wsock);
+	return 1;
+}
+
 int main(int argc , char *argv[])
 {
+	// Rebuild Index
+	if(rebuildIndex() < 0){
+		puts("Failed to rebuild Index, closing server");
+		return 1;
+	}
+
 	// Register with directory service
 	if(registerWithDirService() < 0) {
 		puts("Directory Registry Failed");

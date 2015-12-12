@@ -34,6 +34,25 @@ struct workerNode
 	struct workerNode *next;
 }*head, *curr;
 
+int readInt(int sock, int sock, int* a){
+	int statusOfRead, ackValue=1, statusOfAck;
+	while(1){
+		statusOfRead = recv(sock , a , sizeof(int),0);
+		if(statusOfRead < 0){
+			puts("Receive Failed");
+			return -1;
+		}else{
+			break;
+		}
+	}
+	statusOfAck = send(sock , &ackValue , sizeof(int) , 0);
+	if(statusOfAck < 0){
+		puts("Receive Failed");
+		return -1;
+	}
+	return 1;
+}
+
 int addToList(int ipArr[], int port){
 	int i;
 
@@ -158,7 +177,6 @@ struct workerNode* scanListWorker(){
 		return NULL;
 	}
 
-
 	while(ptr != NULL){
 		if(minLoad == -1){
 			minLoad = ptr->load;
@@ -232,14 +250,12 @@ int locker(int operation, int ip[], int port){
 
 struct workerNode* lockerForWorkerLookup(){
 	// Need to check lock before scanning
-	if(mutex == 1){
-		while(mutex == 0){
-			// Wait
-		}
-
-		// Lock it for use
-		mutex = 1;
+	while(mutex == 1){
+		// Wait
 	}
+
+	// Lock it for use
+	mutex = 1;
 
 	struct workerNode *ptr = scanListWorker();
 
@@ -379,6 +395,40 @@ int workerStatus(char ip_addr[], int port){
 	}
 }
 
+int sendWorkerDetails(int sock, struct workerNode *ptr){
+	//Send Worker Found
+	if(sendInt(sock , 1) < 0){
+		puts("Send Query result Failed");
+		return -1;
+	}
+
+	puts("Worker present status sent");
+
+	//Send the IP and Port
+	if(send(sock, ptr->ip, sizeof(int)*4, 0) < 0){
+		puts("Send IP Failed");
+		return -1;
+	}
+
+	puts("IP sent");
+
+	//Wait for ACK
+	if(waitForAck(sock) < 0){
+		puts("ACK not received");
+		return -1;
+	}
+
+	//Send Port number
+	if(sendInt(sock, ptr->port) < 0){
+		puts("Send Port Failed");
+		return -1;
+	}
+
+	puts("Port Sent");
+
+	return 1;
+}
+
 int runWorkerLookup(int sock){
 	//Look for the worker with least load
 	//Find the worker and send the IP and Port to the tiny google server
@@ -396,7 +446,6 @@ int runWorkerLookup(int sock){
 		puts("No Worker Found");
 		return -1;
 	}else{
-
 		//Convert ip to string
 		char address[50];
 		sprintf(address, "%d.%d.%d.%d", ptr->ip[0], ptr->ip[1], ptr->ip[2], ptr->ip[3]);
@@ -408,42 +457,10 @@ int runWorkerLookup(int sock){
 			runWorkerLookup(sock);
 		}
 
-		//Send Worker Found
-		requestResult = 1;
-		if(send(sock, &requestResult, sizeof(requestResult), 0) < 0){
-			puts("Send Query result Failed");
+		if(sendWorkerDetails(sock, ptr) < 0){
+			puts("Failed to send worker details");
 			return -1;
 		}
-
-		printf("Result Sent = %d\n",requestResult);
-
-		//Wait for ACK
-		if(waitForAck(sock) < 0){
-			puts("ACK not received");
-			return -1;
-		}
-
-		//Send the IP and Port
-		if(send(sock, ptr->ip, sizeof(int)*4, 0) < 0){
-			puts("Send IP Failed");
-			return -1;
-		}
-
-		puts("IP sent");
-
-		//Wait for ACK
-		if(waitForAck(sock) < 0){
-			puts("ACK not received");
-			return -1;
-		}
-
-		//Send Port number
-		if(sendInt(sock, ptr->port) < 0){
-			puts("Send Port Failed");
-			return -1;
-		}
-
-		puts("Port Sent");
 	}
 
 	//Successful
@@ -566,6 +583,63 @@ int runWorkerSetup(int sock, int ipArr[]){
 	return 1;
 }
 
+int sendAllWorkersToServer(int sock){
+
+	// Get lock
+	while(mutex == 1){
+		//wait
+	}
+
+	// Acquire lock
+	mutex = 1;
+
+	// Scan through the link list and send send one worker at a time
+	struct workerNode *ptr = head;
+
+	if(ptr == NULL){
+		if(sendInt(sock, 0) < 0){
+			puts("Sending no worker present status failed");
+			return -1;
+		}else{
+			puts("No Worker Found In List");
+			return 1;
+		}
+	}
+
+	while(ptr != NULL){
+		// Send worker IP, Convert IP to string
+		char address[50];
+		sprintf(address, "%d.%d.%d.%d", ptr->ip[0], ptr->ip[1], ptr->ip[2], ptr->ip[3]);
+
+		// Worker found, make sure it is still alive by pinging it
+		if(workerStatus(address, ptr->port) < 0){
+			// Worker not present, de-register it and look for another one
+			// Release Lock for de-register and then re-acquire it to continue
+			mutex = 0;
+			locker(1, ptr->ip, ptr->port);
+			mutex = 1;
+		}else{
+			if(sendWorkerDetails(sock, ptr) < 0){
+				puts("Failed to send worker details");
+				return -1;
+			}
+		}
+
+		// Next Worker
+		ptr = ptr->next;
+	}
+
+	// Inform the server, there are no more workers
+	if(sendInt(sock, 0) < 0){
+		puts("Sending no worker present status failed");
+		return -1;
+	}
+
+	// Release lock
+	mutex = 0;
+	return 1;
+}
+
 void runWorkerPing(){
 	struct workerNode *ptr = head;
 
@@ -604,24 +678,18 @@ void *connection_handler(void *args)
 	}
 
 	puts("Connection Started");
-	while(1){
-		if(recv(sock , &type , sizeof(type) , 0) > 0){
-			break;
-		}else{
-			puts("Received Failed - Connection Terminated");
-			return 0;
-		}
-	}
 
-	printf("Got Type Worker/Server = %d\n", type);
+	// Ask for requester type
+	if(readInt(sock, &type) < 0){
+		puts("Failed to get type");
 
-	//Send Ack, to be ready for next message
-	if(sendAck(sock) < 0){
-		puts("Sending Ack Failed");
 		//Free the socket pointer
+		close(sock);
 		free(initArgs);
 		return 0;
 	}
+
+	printf("Got Type Worker/Server = %d\n", type);
 
 	switch(type){
 		case 0:
@@ -630,10 +698,6 @@ void *connection_handler(void *args)
 			if(runWorkerLookup(sock) < 0){
 				puts("Lookup Failure - Connection Terminated");
 			}
-
-			//Free the socket pointer
-			free(initArgs);
-			return 0;
 		break;
 		case 1:
 			puts("Calling Worker Setup");
@@ -641,17 +705,23 @@ void *connection_handler(void *args)
 			if(runWorkerSetup(sock, ipArr) < 0){
 				puts("Register/Unregister Failure - Connection Terminated");
 			}
-			//Free the socket pointer
-			free(initArgs);
-			return 0;
 		break;
+		case 2:
+			puts("Server Calling Rebuild Index Request");
+			// Rebuild Index request from server
+			if(sendAllWorkersToServer(sock) < 0){
+				puts("Rebuild Failed");
+			}
+			break;
 		default:
 			//Invalid Value
 			puts("Unknown Request - Connection Terminated");
-			//Free the socket pointer
-			free(initArgs);
-			return 0;
 	}
+
+	//Free the socket pointer
+	close(sock);
+	free(initArgs);
+	return 0;
 }
 
 void* pingFunction(void *args){

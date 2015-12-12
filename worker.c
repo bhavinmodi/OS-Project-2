@@ -18,6 +18,7 @@
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <net/if.h>
+#include<dirent.h>
 
 // Worker Directory address
 #define WorkerDirectoryIP "127.0.0.1"
@@ -730,6 +731,99 @@ int startSearch(int sock){
 	return 1;
 }
 
+int rebuild(int sock){
+	// Scan all files in the worker directory and send them across
+	char currentDirPath[1024];
+	char fileName[100];
+
+	if(getcwd(&currentDirPath[0], 1024) == NULL){
+		puts("Failed to get current directory");
+		return -1;
+	}
+
+	printf("Current Directory Path is = %s\n", currentDirPath);
+
+	struct stat s;
+
+	if (stat(currentDirPath, &s) == 0){
+		if(S_ISDIR(s.st_mode)){
+			puts("Directory");
+
+			// Check directory for files, we only consider .txt files
+			DIR *dp;
+			struct dirent *ep;
+			dp = opendir (currentDirPath);
+
+			if (dp != NULL){
+				while ((ep = readdir (dp)) != NULL){
+					strcpy(fileName, ep->d_name);
+
+					// If it is a .txt file, then send it over
+					if(strstr(fileName, ".txt")){
+						// Inform the server if there is a file name to send
+						if(sendInt(sock, 1) < 0){
+							puts("Sending File present failed");
+							break;
+						}
+
+						// Send file name
+						if(sendString(sock, 100, &fileName[0]) < 0){
+							puts("Sending file name failed");
+							return -1;
+						}
+
+					}
+				}
+
+				// No more file names left to send
+				if(sendInt(sock, -1) < 0){
+					puts("Failed to send no more file names left indicator");
+					return -1;
+				}
+
+				(void) closedir (dp);
+			}
+		}
+	}else{
+		// Something went wrong with reading the directory, let the server know
+		if(sendInt(sock, -2) < 0){
+			puts("Failed to send wrong path error to server");
+			return -1;
+		}
+	}
+
+	// Send Index to server
+	while(mutex == 1){
+		// Wait
+	}
+
+	mutex = 1;
+
+	initializeConversionGlobalHashToString();
+	char *word=NULL;
+
+	convertGlobalHashIntoString(&word);
+	while(strcmp(word,"EMPTY")!=0){
+		convertGlobalHashIntoString(&word);
+
+		// Send a 1 indicating we still want to send words
+		if(sendInt(sock, 1) < 0){
+			puts("Sending '1' indicator that we still have words to send failed");
+			mutex = 0;
+			return -1;
+		}
+
+		if(sendString(sock, 1024, word) < 0){
+			puts("Sending Index To Server for rebuilding Failed");
+			mutex = 0;
+			return -1;
+		}
+	}
+
+	mutex = 0;
+	return 1;
+}
+
 void *connection_handler(void *socket_desc)
 {
     //Get the socket descriptor
@@ -772,6 +866,14 @@ void *connection_handler(void *socket_desc)
 			close(sock);
 			free(socket_desc);
 			return 0;
+		case 4:
+			// This is a rebuild request from the server
+			if(rebuild(sock) < 0){
+				puts("Server rebuild request failed");
+			}else{
+				puts("Rebuild successful");
+			}
+			break;
 		default:
 			printf("Invalid Choice %d",choice);
 			break;
