@@ -53,3 +53,16 @@ int findFileLoc(char fileLocToFind[])
 		return 0;
     }
 }
+
+int checkIfFileExists(char fileLocToFind[])
+{
+	    HASH_FIND_STR(hashforfileloc, fileLocToFind, s3);
+    if (s3)
+    {
+		return 1;
+    }
+    else
+    {
+		return 0;
+    }
+}
