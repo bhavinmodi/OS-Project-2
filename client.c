@@ -494,6 +494,8 @@ int waitForSearchResult(int sock){
 		return -1;
 	}
 
+	printf("File Size = %d\n",fileSize);
+
 	// Initialize file
 	FILE *fp;
 	fp = fopen(answer, "w+");
@@ -513,6 +515,9 @@ int waitForSearchResult(int sock){
 		if(readString(sock, 1024, &buffer[0]) < 0){
 			puts("Failed receiving file contents.");
 			return -1;
+		}else{
+			//Write to file
+			fputs(buffer, fp);
 		}
 
 		// Add bytes read from length of buffer
@@ -524,6 +529,8 @@ int waitForSearchResult(int sock){
 	if(sendAck(sock) < 0){
 		return -1;
 	}
+
+	puts("Got the file from server\n");
 
 	// Close the file
 	fclose(fp);
