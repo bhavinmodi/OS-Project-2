@@ -597,9 +597,11 @@ int sendAllWorkersToServer(int sock){
 	if(ptr == NULL){
 		if(sendInt(sock, 0) < 0){
 			puts("Sending no worker present status failed");
+			mutex = 0;
 			return -1;
 		}else{
 			puts("No Worker Found In List");
+			mutex = 0;
 			return 1;
 		}
 	}
@@ -619,6 +621,7 @@ int sendAllWorkersToServer(int sock){
 		}else{
 			if(sendWorkerDetails(sock, ptr) < 0){
 				puts("Failed to send worker details");
+				mutex = 0;
 				return -1;
 			}
 		}
@@ -630,6 +633,7 @@ int sendAllWorkersToServer(int sock){
 	// Inform the server, there are no more workers
 	if(sendInt(sock, 0) < 0){
 		puts("Sending no worker present status failed");
+		mutex = 0;
 		return -1;
 	}
 
