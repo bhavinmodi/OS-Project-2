@@ -825,6 +825,8 @@ int requestFileFromWorker(int port, char fileName[]){
 		return -1;
 	}
 
+	puts("Sent Server Choice to worker 2");
+
 	// Send FileName you are requesting
 	if(sendString(sock, 100, &fileName[0]) < 0){
 		puts("Sending file Name for searching to worker failed.");
@@ -834,12 +836,16 @@ int requestFileFromWorker(int port, char fileName[]){
 		return -1;
 	}
 
+	printf("Sent Filename to worker = %s\n",fileName);
+
 	int fileSize = 0;
 	// Get the file size
 	if(readInt(sock, &fileSize) < 0){
 		puts("Receiving file size from worker failed.");
 		return -1;
 	}
+
+	printf("Got filesize from worker = %d\n",fileSize);
 
 	// Initialize file
 	FILE *fp;
@@ -882,6 +888,8 @@ int requestFileFromWorker(int port, char fileName[]){
 	if(sendAck(sock) < 0){
 		return -1;
 	}
+
+	printf("Finished reading file from worker");
 
 	// Close Socket and file
 	fclose(fp);
@@ -994,6 +1002,8 @@ int searchIndex(int sock, char keywords[]){
 		puts("requestFileFromWorker Failed");
 		return -1;
 	}
+
+	puts("Starting Send File To Client");
 
 	// Send the requested file to the client
 	if(sendFileToClient(sock, requestedFile) < 0){
