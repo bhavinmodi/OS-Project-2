@@ -568,6 +568,8 @@ int getWorkerFromDirectory(char fileName[100]){
 
 		hashFileAndPort(fileName,port);
 		
+		fileLocHashIterate();
+
 		// Send the file to a worker node for indexing
 		if(sendFileToWorker(sock, fileName) < 0){
 			printf("%s : Send To Worker Failed\n",fileName);
@@ -678,7 +680,34 @@ int startIndexing(int sock){
 			}
 		}
 
+		if(sendAck(sock) < 0){
+			return -1;
+		}
+
 		printf("File Name Received = %s\n",fileName);
+
+		// If fileName already exists, do not index
+		if(checkIfFileExists(&fileName[0]) == 1){
+			// Already exists
+			if(sendInt(sock, -1) < 0){
+				puts("Sending will not hash as -1 failed");
+				return -1;
+			}
+
+			// Send 1 to say indexing was successful
+			if(sendInt(sock, 1) < 0){
+				puts("Sending 1 after file exists break failed");
+				return -1;
+			}
+
+			continue;
+		}
+
+		// Send 1 for file has not been indexed yet
+		if(sendInt(sock, 1) < 0){
+			puts("Sending will be indexed as 1 failed");
+			return -1;
+		}
 
 		// Initialize file
 		FILE *fp;
@@ -686,10 +715,6 @@ int startIndexing(int sock){
 
 		if(fp == NULL){
 			printf("%s : Error opening file",fileName);
-			return -1;
-		}
-
-		if(sendAck(sock) < 0){
 			return -1;
 		}
 
@@ -956,14 +981,16 @@ int searchIndex(int sock, char keywords[]){
 		return -1;
 	}
 	
+	printf("File Name Received = %s\n",requestedFile);
+
 	int portNumber = findFileLoc(requestedFile);
-	if(portNumber<0)
-	{
-		//TODO: Fill what to do when file doesnt exist in hash
+	if(portNumber < 0){
+		puts("Get Port Number Failed");
+		return -1;
 	}
 
-	// TODO: Get Files from worker depending on result of search
-	if(requestFileFromWorker(port, requestedFile) < 0){
+	// Get Files from worker depending on result of search
+	if(requestFileFromWorker(portNumber, requestedFile) < 0){
 		puts("requestFileFromWorker Failed");
 		return -1;
 	}

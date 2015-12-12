@@ -395,6 +395,20 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 		return -1;
 	}
 
+	// Wait for server response for file already exists
+	int fileExists;
+
+	if(readInt(sock, &fileExists) < 0){
+		puts("Failed to read file exists from server");
+		return -1;
+	}
+
+	if(fileExists < 0){
+		// File already exists, do not send, but do consider this to be an error
+		puts("File already Indexed | Will not be indexed again");
+		return 1;
+	}
+
 	//Send File size
 	if(sendInt(sock, size) < 0){
 		puts("Send File Size Failed");
@@ -457,6 +471,14 @@ int waitForSearchResult(int sock){
 	char answer[100];
 	printf("Which File do you want to retrieve: ");
 	fgets(answer, sizeof(answer), stdin);
+
+	int index;
+	for(index = 0; index < 100; index++){
+		if(answer[index] == '\n'){
+			answer[index] = '\0';
+			break;
+		}
+	}
 
 	// Send the file to retrieve
 	if(sendString(sock, 100, &answer[0]) < 0){
@@ -567,18 +589,11 @@ int clientInput(int sock){
 				dp = opendir (path);
 
 				if (dp != NULL){
-					//puts("CK 1");
-
 					while ((ep = readdir (dp)) != NULL){
 						strcpy(fileName, ep->d_name);
 
-						//puts("CK 2");
-
 						// If it is a .txt file, then send it over
 						if(strstr(fileName, ".txt")){
-
-							//puts("CK 3");
-
 							// Inform the server if there is a file to send
 							if(sendInt(sock, 1) < 0){
 								puts("Sending File present failed");
@@ -604,16 +619,12 @@ int clientInput(int sock){
 						}
 					}
 
-					//puts("CK 4");
-
 					if(choice >= 0){
 						// Inform the server there are no more files to send
 						if(sendInt(sock, -1) < 0){
 							puts("Sending File not present failed");
 						}
 					}
-
-					//puts("CK 5");
 
 					(void) closedir (dp);
 				}else{
