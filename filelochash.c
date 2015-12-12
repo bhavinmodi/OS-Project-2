@@ -69,7 +69,7 @@ int checkIfFileExists(char fileLocToFind[])
 
 void fileLocHashIterate()
 {
-    struct my_struct *s;
+    struct filelochash *s;
 
     for(s=hashforfileloc; s != NULL; s=s->hh.next) {
         printf("File is %s :\n",s->fileName);
