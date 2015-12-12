@@ -317,18 +317,18 @@ int connectToServer(int ip[], int port){
 		//Connected to Remote Server
 		puts("Connected");
 
-		// Let it know you are the client
+		// Inform the server you are the client
 		if(sendInt(sock, 1) < 0){
-			puts("Sending connector type failed");
+			puts("Sending connector type to server failed");
 			return -1;
 		}
+
 		return sock;
 	}else{
 		printf("Connection Failed : Return Value %d\n",connected);
 
 		// Let the directory know that the server is not available
 		informDirectoryServerMaybeAbsent();
-
 		return -1;
 	}
 
@@ -432,7 +432,21 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 
 int waitForSearchResult(int sock){
 
-	// TODO: Get result of search from server
+	// Get result of search from server
+	int sizeOfResult;
+	if(readInt(sock, &sizeOfResult) < 0){
+		puts("Failed to receive size of result");
+		return -1;
+	}
+
+	// Get Result and Display
+	char result[sizeOfResult];
+	if(readString(sock, sizeOfResult, &result[0]) < 0){
+		puts("Failed to receive result array.");
+		return -1;
+	}
+
+	printf("Result is:\n %s\n",result);
 
 	// Select which file you want from the result
 	char c;
@@ -474,7 +488,7 @@ int waitForSearchResult(int sock){
 	while(bytesRead < fileSize){
 
 		// Read the first 1 KB
-		if(readString(sock, 1024, &buffer) < 0){
+		if(readString(sock, 1024, &buffer[0]) < 0){
 			puts("Failed receiving file contents.");
 			return -1;
 		}

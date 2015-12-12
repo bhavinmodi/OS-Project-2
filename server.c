@@ -645,6 +645,8 @@ int startIndexing(int sock){
 			break;
 		}
 
+		printf("File Present = %d\n",filePresent);
+
 		if(filePresent < 0){
 			// No more files or Invalid Path on client
 			if(filePresent == -2){
@@ -663,6 +665,8 @@ int startIndexing(int sock){
 				return -1;
 			}
 		}
+
+		printf("fileDetailStatus = %d\n",fileDetailStatus);
 
 		// Get Filename
 		while(1){
@@ -926,12 +930,24 @@ int sendFileToClient(int sock, char fileName[]){
 
 int searchIndex(int sock, char keywords[]){
 
-	// TODO: Search Hash table
+	// Search Hash table
 	char *result;
 	findMultipleWordsInHashWithSTRTOK(keywords,&result);
-	// TODO: Store results in an array
 
-	// TODO: Send the client the search result
+	// Send the client the search result
+	int sizeOfResult = strlen(result);
+
+	// Send result size
+	if(sendInt(sock, sizeOfResult) < 0){
+		puts("Failed to send result size to client");
+		return -1;
+	}
+
+	// Send the result
+	if(sendString(sock, sizeOfResult, &result[0]) < 0){
+		puts("Failed to send result to client");
+		return -1;
+	}
 
 	// Get from client which file he wants
 	char requestedFile[100];
@@ -1036,6 +1052,7 @@ void *connection_handler(void *socket_desc)
 			switch(choice){
 				case 1:
 					// This is an indexing request
+					puts("Client Called Indexing, choice = 1");
 					if(startIndexing(sock) < 0){
 						puts("Indexing Failed");
 					}else{
@@ -1054,7 +1071,6 @@ void *connection_handler(void *socket_desc)
 					printf("Invalid Choice %d\n",choice);
 					break;
 			}
-
 		}
 		break;
 	case 2:
@@ -1075,13 +1091,6 @@ void *connection_handler(void *socket_desc)
 				puts("Update index called");
 				if(updateIndex(sock) < 0){
 					puts("Update Index by worker failed");
-				}
-				break;
-			case 2:
-				// Searching
-				puts("Search index called");
-				if(searchIndex()){
-					puts("Search File return failed");
 				}
 				break;
 			default:

@@ -13,7 +13,7 @@
 #include<arpa/inet.h> //inet_addr
 #include<unistd.h>    //write
 #include<pthread.h> //for threading , link with lpthread
-
+#include<sys/stat.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
@@ -48,6 +48,30 @@ int sendAck(int sock)
 		puts("Ack Send Failed");
 		return -1;
 	}
+}
+
+int waitForAck(int sock){
+	//Wait for Ack
+	int ack;
+
+	while(1){
+		if(recv(sock , &ack , sizeof(int),0) < 0){
+			//Failure break
+			return -1;
+		}else{
+			//puts("Got ACK");
+			//Got ACK
+			return 1;
+		}
+	}
+
+	//Check Ack
+	if(ack == 0){
+		//Failure break
+		return -1;
+	}
+
+	return 1;
 }
 
 int sendInt(int sock, int a){
