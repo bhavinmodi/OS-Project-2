@@ -149,8 +149,10 @@ struct my_struct* appendValuesTomy_struct(struct my_struct *s, char word[], int 
 
 struct my_struct* createmy_structForEmptyValues()
 {
-	structtopointtoemptyvalues = createmy_structStruct();
+	struct my_struct* structtopointtoemptyvalues = createmy_structStruct();
 	strncpy(structtopointtoemptyvalues->wordBeingHashed,"EMPTY",sizeOfWordBeingHashed);
+	return structtopointtoemptyvalues;
+	//*finalResult = structtopointtoemptyvalues;
 }
 
 struct localhashstruct* createLocalHashStruct()
@@ -491,6 +493,8 @@ void findMultipleWordsInHash(int numberOfWords)
 //TODO
 void findMultipleWordsInHashWithSTRTOK(char string[], char **finalOutput)
 {
+	structtopointtoemptyvalues = createmy_structForEmptyValues();
+	
 	struct my_struct *arrayOfStructs[50];
 	int arrayOfStructsCounter=0;
 	
@@ -582,7 +586,7 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 	char *output = malloc(sizeof(char)*100);
 	output = " ";
 	char tempout[100];
-	char *nullTerminator = '\0';
+	char *nullTerminator = "\0";
 	
 	int rank=1;
 	
@@ -648,18 +652,35 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 		primary=primary->next;
 	}
 	
-	copystring(&output,nullTerminator);
+	
+	
 	//end the loop
 	
 	if(varToCheckAtLeastOneMatch==0)
 	{
 		sprintf(tempout,"No document matches the given set of words \n");
+		
+		//new code to show best in rest of the words
 		copystringwithoutfree(&output,tempout);
+		sprintf(tempout,"Printing documents containing maximum occurences for each word\n");
+		copystring(&output,tempout);
+		int j=0;
+		while(j<*arrayOfStructsCounter)
+		{
+			if(strcmp(arrayOfStructs[j]->wordBeingHashed,"EMPTY")!=0)
+			{
+			sprintf(tempout,"Word : %s\n Doc Name : %s\n Count : %d\n\n",arrayOfStructs[j]->wordBeingHashed,arrayOfStructs[j]->root->docName,arrayOfStructs[j]->root->noOfOccurences);
+			copystring(&output,tempout);
+			}
+			j++;
+		}
 		copystring(&output,nullTerminator);
 	}
+	copystring(&output,nullTerminator);
 	//put some check to see if at least one doc has all words
 	
 	//return strdup(output);
+	//copystring(&output,nullTerminator);
 	*finalOutput = output;
 	//free(output);
 }
@@ -826,9 +847,12 @@ void convertLocalHashIntoString(char fileName[], char **dest2)
 /*
 main()
 {
-	structtopointtoemptyvalues = createmy_structForEmptyValues();
+	//structtopointtoemptyvalues = createmy_structStruct();
+	//strncpy(structtopointtoemptyvalues->wordBeingHashed,"EMPTY",sizeOfWordBeingHashed);
 	int statusOfSend;
     statusOfSend = hashFile("dracula.txt");
+    statusOfSend = hashFile("cities.txt");
+    statusOfSend = hashFile("frank.txt");
 	if(statusOfSend==0)
 	{
 		printf("Hashing file failed \n");
@@ -837,7 +861,7 @@ main()
 	//findWordInHash("Duis");
     // findWordInHash("Droid");
 	// findMultipleWordsInHash(4);
-	char blah[] = "subscribe feeling importan\n";
+	char blah[] = "we the people jamunda\n";
 	char *result;
 	findMultipleWordsInHashWithSTRTOK(blah,&result);
 	printf("%s \n",result);
@@ -877,6 +901,7 @@ main()
 	}
 		}
 	*/
+	
 
 
 	
