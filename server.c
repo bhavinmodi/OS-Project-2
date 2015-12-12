@@ -818,7 +818,7 @@ int startIndexing(int sock){
 			return -1;
 		}else{
 			// Delete file
-			eleteFile(fileName);
+			deleteFile(fileName);
 
 			// Let the client know that the worker got the file
 			if(sendInt(sock, 1) < 0){
@@ -1020,7 +1020,7 @@ int searchIndex(int sock, char keywords[]){
 	// Send the client the search result
 	int sizeOfResult = strlen(result);
 
-	printf("Result = %d\n",result);
+	printf("Result = %s\n",result);
 
 	// Send result size
 	if(sendInt(sock, sizeOfResult) < 0){
