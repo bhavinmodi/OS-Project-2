@@ -29,7 +29,7 @@
 #define WorkerDirectoryIP "127.0.0.1"
 #define WorkerDirectoryPort 8002
 
-// server address
+// server address for client
 #define ServerIP "127.0.0.1"
 #define ServerPort 8011
 
@@ -199,24 +199,23 @@ int registerWithDirService()
 	puts("Connected \n");
 
 	//we first send '1' to the Dir Service which shows it that we are a server
-	if(sendInt(sock, 1) < 0)
-	{
+	if(sendInt(sock, 1) < 0){
 		puts("Sending '1' to indicate Server to Dir Service failed");
+		close(sock);
 		return -1;
 	}
 
 	//we then send '1' to indicate that we want to Register
-	if(sendInt(sock, 1) < 0)
-	{
+	if(sendInt(sock, 1) < 0) {
 		puts("Sending '1' to indicate Server to Dir Service failed");
+		close(sock);
 		return -1;
 	}
 
 	//now we send the port
-	//here 8888 is the port that we are listening to for connections from the dir service
-	if(sendInt(sock, ServerPort) < 0)
-	{
+	if(sendInt(sock, ServerPort) < 0){
 		printf("Sending Port Number failed \n");
+		close(sock);
 		return -1;
 	}
 
@@ -224,11 +223,13 @@ int registerWithDirService()
 
 	if(readInt(sock, &registrationStatus) < 0){
 		puts("Registration failed");
+		close(sock);
 		return -1;
 	}
 
 	if(registrationStatus == 1){
 		printf("Service successfully registered \n");
+		close(sock);
 		return 1;
 	}
 
@@ -603,6 +604,7 @@ int getWorkerFromDirectory(char fileName[100]){
 		// Send the file to a worker node for indexing
 		if(sendFileToWorker(sock, fileName) < 0){
 			printf("%s : Send To Worker Failed\n",fileName);
+			close(sock);
 			return -1;
 		}else{
 			printf("%s : Sent to Worker\n",fileName);

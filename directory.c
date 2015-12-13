@@ -624,24 +624,15 @@ void *connection_handler(void *args)
 	}
 
 	puts("Connection Started");
-	while(1){
-		if(recv(sock , &type , sizeof(type) , 0) > 0){
-			break;
-		}else{
-			puts("Received Failed - Connection Terminated");
-			return 0;
-		}
+	if(readInt(sock, &type) < 0){
+		puts("Failed to get type");
+		//Free the socket pointer
+		free(initArgs);
+		close(sock);
+		return 0;
 	}
 
 	printf("Got Type Client | Worker | Server = %d\n", type);
-
-	//Send Ack, to be ready for next message
-	if(sendAck(sock) < 0){
-		puts("Sending Ack Failed");
-		//Free the socket pointer
-		free(initArgs);
-		return 0;
-	}
 
 	switch(type){
 		case 0:
@@ -670,9 +661,6 @@ void *connection_handler(void *args)
 				}
 			}
 
-			//Free the socket pointer
-			free(initArgs);
-			return 0;
 		}
 		break;
 		case 1:
@@ -681,17 +669,16 @@ void *connection_handler(void *args)
 			if(runServerSetup(sock, ipArr) < 0){
 				puts("Register/Unregister Failure - Connection Terminated");
 			}
-			//Free the socket pointer
-			free(initArgs);
-			return 0;
 		break;
 		default:
 			//Invalid Value
 			puts("Unknown Request - Connection Terminated");
-			//Free the socket pointer
-			free(initArgs);
-			return 0;
 	}
+
+	//Free the socket pointer
+	close(sock);
+	free(initArgs);
+	return 0;
 }
 
 void* pingFunction(void *args){
@@ -699,7 +686,7 @@ void* pingFunction(void *args){
 	while(1){
 		runServerPing();
 
-		// Wait for 5 seconds
+		// Wait for 10 seconds
 		time_t startTime = time(NULL); // return current time in seconds
 		while (time(NULL) - startTime < 10) {
 		   // Wait
