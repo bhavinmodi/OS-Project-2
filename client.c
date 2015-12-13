@@ -658,6 +658,7 @@ int clientInput(int sock){
 						// Inform the server there are no more files to send
 						if(sendInt(sock, -1) < 0){
 							puts("Sending File not present failed");
+							return -1;
 						}
 					}
 
@@ -667,6 +668,7 @@ int clientInput(int sock){
 					// Inform the server there was error in opening directory
 					if(sendInt(sock, -2) < 0){
 						puts("Sending error in opening directory failed");
+						return -1;
 					}
 				}
 
@@ -708,6 +710,7 @@ int clientInput(int sock){
 						// Inform the server there are no more files to send
 						if(sendInt(sock, -1) < 0){
 							puts("Sending File not present failed");
+							return -1;
 						}
 					}
 				}else{
@@ -716,6 +719,7 @@ int clientInput(int sock){
 					// Inform the server that the REG file path was invalid
 					if(sendInt(sock, -2) < 0){
 						puts("Sending Invalid Path :  failed");
+						return -1;
 					}
 				}
 			}
@@ -724,6 +728,7 @@ int clientInput(int sock){
 			// Inform the server there was a error in the file path
 			if(sendInt(sock, -2) < 0){
 				puts("Sending Failed to determine directory or file :  failed");
+				return -1;
 			}
 		}
 		break;
@@ -854,6 +859,8 @@ int main(){
 
 	while(1){
 		if(clientInput(sock) < 0){
+			// Close socket, will try and re-establish a new connection
+			close(sock);
 			sock = AskUserToContinue();
 			if(sock < 0){
 				puts("Exiting | Connection terminated");

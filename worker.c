@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 #include <net/if.h>
 #include<dirent.h>
+#include <errno.h>
 
 // Worker Directory address
 #define WorkerDirectoryIP "127.0.0.1"
@@ -36,7 +37,7 @@
 int deRegistered=0;
 
 // MUTEX ON INDEX
-int mutex = 0;
+pthread_mutex_t lock;
 
 int sendAck(int sock)
 {
@@ -258,23 +259,23 @@ int deregisterWithDirService()
 	puts("Connected \n");
 
 	//we first send '1' to the Dir Service which shows it that we are a server
-	if(sendInt(sock, 1) < 0)
-	{
+	if(sendInt(sock, 1) < 0){
 		printf("Sending '1' to indicate Server to Dir Service failed \n");
+		close(sock);
 		return -1;
 	}
 
 	//we then send '0' to indicate that we want to deregister
-	if(sendInt(sock, 0) < 0)
-	{
+	if(sendInt(sock, 0) < 0){
 		printf("Sending '0' to indicate Server to Dir Service failed \n");
+		close(sock);
 		return -1;
 	}
 
 	// Send the port
-	if(sendInt(sock, WorkerPort) < 0)
-	{
+	if(sendInt(sock, WorkerPort) < 0){
 		printf("Sending Port Number failed \n");
+		close(sock);
 		return -1;
 	}
 
@@ -379,12 +380,12 @@ int connectToServer(int ip[], int port){
 int getServerFromDirectory(int *ip, int *port){
 
 		//Initialize variables
-		int sock, result;
-		struct sockaddr_in server;
+		int sockd, result;
+		struct sockaddr_in serverDirectory;
 
 		//Create socket
-	    sock = socket(AF_INET , SOCK_STREAM , 0);
-	    if (sock == -1)
+		sockd = socket(AF_INET , SOCK_STREAM , 0);
+	    if (sockd == -1)
 	    {
 	        puts("Could not create socket");
 			return -1;
@@ -392,43 +393,54 @@ int getServerFromDirectory(int *ip, int *port){
 	    puts("Socket created");
 
 		//Connect to Directory Register and get ip and port for service
-		server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
-	    server.sin_family = AF_INET;
-	    server.sin_port = htons(ServerDirectoryPort);
+	    serverDirectory.sin_family = AF_INET;
+	    serverDirectory.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
+	    serverDirectory.sin_port = htons(ServerDirectoryPort);
 
 		//Connect to Directory Service
 		puts("Trying to connect to Directory Service");
-		int connected = -1;
-		while(connected == -1){
-	    	connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+
+		while (connect(sockd, (struct sockaddr *)&serverDirectory, sizeof(serverDirectory)) < 0) {
+			// Here is my error
+			printf("Error when connecting! %s\n",strerror(errno));
+
+			// Try Again
+			sockd = socket(AF_INET , SOCK_STREAM , 0);
+			if (sockd == -1)
+			{
+				puts("Could not create socket");
+				return -1;
+			}
+			puts("Socket created");
 		}
+
 
 		//Connected to Directory Service
 	    puts("Connected");
 
-		//Let Directory know you are the client
-		if(sendInt(sock, 0) < 0){
+		//Let Directory know you are the worker
+		if(sendInt(sockd, 0) < 0){
 			puts("Send connector type worker failed");
-			close(sock);
+			close(sockd);
 			return -1;
 		}
 
 		// Tell the directory there the reason for connecting
-		if(sendInt(sock, 1) < 1){
+		if(sendInt(sockd, 1) < 1){
 			puts("Send connector reason worker failed");
-			close(sock);
+			close(sockd);
 			return -1;
 		}
 
 		//Get Status of Server Found or Not
-		if(readInt(sock, &result) < 0){
+		if(readInt(sockd, &result) < 0){
 			puts("Receive Query Result failed");
-			close(sock);
+			close(sockd);
 			return -1;
 		}else{
 			if(result == 0){
 				puts("Server Not Found");
-				close(sock);
+				close(sockd);
 				return -1;
 			}
 		}
@@ -436,29 +448,29 @@ int getServerFromDirectory(int *ip, int *port){
 		printf("Got Result = %d\n",result);
 
 		//Get IP
-		if(recv(sock , ip , sizeof(int)*4,0) < 0){
+		if(recv(sockd , ip , sizeof(int)*4,0) < 0){
 			puts("Receive IP failed");
-			close(sock);
+			close(sockd);
 			return -1;
 		}
 
 		//Send the ACK
-		if(sendAck(sock) < 0){
+		if(sendAck(sockd) < 0){
 			puts("Send ACK failed");
-			close(sock);
+			close(sockd);
 			return -1;
 		}
 
 		//Get Port
-		if(readInt(sock , port) < 0){
+		if(readInt(sockd , port) < 0){
 			puts("Receive Port failed");
-			close(sock);
+			close(sockd);
 			return -1;
 		}
 
 		//Successful
 		//Close connection to Directory Service
-		close(sock);
+		close(sockd);
 		return 1;
 }
 
@@ -466,7 +478,7 @@ int sendIndexToServer(char fileName[]){
 	//Send Lookup Request
 	int ip[4];
 	int port;
-	int sock;
+	int socks;
 	int sendFlag;
 
 	// Get a new server
@@ -479,8 +491,8 @@ int sendIndexToServer(char fileName[]){
 	}
 
 	if(sendFlag == 1){
-		sock = connectToServer(ip, port);
-		if(sock < 0){
+		socks = connectToServer(ip, port);
+		if(socks < 0){
 			puts("Worker failed to connect to the server");
 			sendFlag = 0;
 		}
@@ -490,16 +502,16 @@ int sendIndexToServer(char fileName[]){
 
 	if(sendFlag == 1){
 		// Inform server that you are the worker
-		if(sendInt(sock, 2) < 0){
+		if(sendInt(socks, 2) < 0){
 			puts("Send Connector type to server failed");
-			close(sock);
+			close(socks);
 			return -1;
 		}
 
 		// Inform server the purpose : Indexing
-		if(sendInt(sock, 1) < 0){
+		if(sendInt(socks, 1) < 0){
 			puts("Send request type to server failed");
-			close(sock);
+			close(socks);
 			return -1;
 		}
 	}
@@ -520,9 +532,9 @@ int sendIndexToServer(char fileName[]){
 
 		if(sendFlag == 1){
 			// Send a 1 indicating we still want to send words
-			if(sendInt(sock, 1) < 0){
+			if(sendInt(socks, 1) < 0){
 				puts("Sending '1' indicator that we still have words to send failed");
-				close(sock);
+				close(socks);
 				return -1;
 			}
 
@@ -533,16 +545,16 @@ int sendIndexToServer(char fileName[]){
 			// Get length of word to be sent
 			sizeOfWord = (int)strlen(word2) + 1;
 
-			if(sendInt(sock, sizeOfWord) < 0){
+			if(sendInt(socks, sizeOfWord) < 0){
 				puts("failed to send word size");
-				close(sock);
+				close(socks);
 				return -1;
 			}
 
 			// Send the word
-			if(sendString(sock, sizeOfWord, word2) < 0){
+			if(sendString(socks, sizeOfWord, word2) < 0){
 				puts("Sending Index Back To Server Failed");
-				close(sock);
+				close(socks);
 				return -1;
 			}
 		}
@@ -553,9 +565,9 @@ int sendIndexToServer(char fileName[]){
 
 	if(sendFlag == 1){
 		// Send 0 to indicate completion
-		if(sendInt(sock, 0) < 0){
+		if(sendInt(socks, 0) < 0){
 			puts("Sending '0' for completion of send index to server failed");
-			close(sock);
+			close(socks);
 			return -1;
 		}
 	}
@@ -563,7 +575,7 @@ int sendIndexToServer(char fileName[]){
 	puts("0 for completion sent");
 
 	// Close the connection established with the server
-	close(sock);
+	close(socks);
 
 	return 1;
 }
@@ -644,19 +656,15 @@ int startIndexing(int sock){
 	close(sock);
 
 	// Perform indexing
-	while(mutex == 1){
-		//wait
-	}
-
-	mutex = 1;
+	pthread_mutex_lock(&lock);
 
 	if(sendIndexToServer(fileName) < 0){
 		puts("Index Generation or Sending Failed");
-		mutex = 0;
+		pthread_mutex_unlock(&lock);;
 		return -1;
 	}
 
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 	return 1;
 }
 
@@ -731,20 +739,15 @@ int startSearch(int sock){
 		return -1;
 	}
 
-	while(mutex == 1){
-		// Wait
-	}
-
-	// Accquire Lock
-	mutex = 1;
+	pthread_mutex_lock(&lock);
 
 	if(sendFileToServer(sock, fileName) < 0){
 		puts("Sending file to server failed.");
-		mutex = 0;
+		pthread_mutex_unlock(&lock);
 		return -1;
 	}
 
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 
 	return 1;
 }
@@ -810,12 +813,7 @@ int rebuild(int sock){
 		}
 	}
 
-	// Send Index to server
-	while(mutex == 1){
-		// Wait
-	}
-
-	mutex = 1;
+	 pthread_mutex_lock(&lock);
 
 	initializeConversionGlobalHashToString();
 	char *word=NULL;
@@ -825,13 +823,13 @@ int rebuild(int sock){
 		// Send a 1 indicating we still want to send words
 		if(sendInt(sock, 1) < 0){
 			puts("Sending '1' indicator that we still have words to send failed");
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 
 		if(sendString(sock, 1024, word) < 0){
 			puts("Sending Index To Server for rebuilding Failed");
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 
@@ -841,11 +839,11 @@ int rebuild(int sock){
 	// Send a 0 indicating we are done
 	if(sendInt(sock, 0) < 0){
 		puts("Sending '0' indicator that we no more words to send failed");
-		mutex = 0;
+		pthread_mutex_unlock(&lock);
 		return -1;
 	}
 
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 	return 1;
 }
 
@@ -915,6 +913,11 @@ void *connection_handler(void *socket_desc)
 
 int main(int argc , char *argv[])
 {
+	if (pthread_mutex_init(&lock, NULL) != 0){
+		printf("\n mutex init failed\n");
+		return 1;
+	}
+
 	// Register with directory service
 	if(registerWithDirService() < 0)
 	{
@@ -994,6 +997,8 @@ int main(int argc , char *argv[])
         //pthread_join( sniffer_thread , NULL);
         //puts("Handler assigned");
     }
+
+    pthread_mutex_destroy(&lock);
 
     if (client_sock < 0)
     {

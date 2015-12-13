@@ -34,7 +34,7 @@
 #define ServerPort 8011
 
 // MUTEX LOCK ON INDEX
-int mutex = 0;
+pthread_mutex_t lock;
 
 //the thread function
 int deRegistered=0;
@@ -251,14 +251,6 @@ int deregisterWithDirService()
 	}
 	puts("Socket created");
 
-	// Bind the server to its own socket before connecting,
-	//Bind to a specific network interface (and optionally a specific local port)
-	struct sockaddr_in localaddr;
-	localaddr.sin_family = AF_INET;
-	localaddr.sin_addr.s_addr = inet_addr(ServerIP);
-	localaddr.sin_port = ServerPort;
-	bind(sock, (struct sockaddr *)&localaddr, sizeof(localaddr));
-
 	// Below should contain the ip address of the Directory Service
 	struct sockaddr_in server;
 	server.sin_family = AF_INET;
@@ -277,24 +269,25 @@ int deregisterWithDirService()
 	puts("Connected \n");
 
 	//we first send '1' to the Dir Service which shows it that we are a server
-	if(sendInt(sock, 1) < 0)
-	{
+	if(sendInt(sock, 1) < 0){
 		printf("Sending '1' to indicate Server to Dir Service failed \n");
+		close(sock);
 		return -1;
 	}
 
 	puts("Directory Knows we are the server");
 
 	//we then send '0' to indicate that we want to deregister
-	if(sendInt(sock, 0) < 0)
-	{
+	if(sendInt(sock, 0) < 0){
 		printf("Sending '0' to indicate Server to Dir Service failed \n");
+		close(sock);
 		return -1;
 	}
 
 	// Send port
 	if(sendInt(sock, ServerPort) < 0){
 		puts("Sending port for deregistration failed");
+		close(sock);
 		return -1;
 	}
 
@@ -624,11 +617,7 @@ int updateIndex(int sock){
 
 	//printf("Update Index started\n");
 
-	while(mutex == 1 || mutex == 2){
-		//wait
-	}
-
-	mutex = 1;
+	pthread_mutex_lock(&lock);
 
 	// Wait for index from worker
 	int completionIndicator;
@@ -637,7 +626,7 @@ int updateIndex(int sock){
 	while(1){
 		if(readInt(sock, &completionIndicator) < 0){
 			puts("Reading completion indicator from worker failed");
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 
@@ -649,13 +638,13 @@ int updateIndex(int sock){
 		}else{
 			if(readInt(sock, &sizeOfWord) < 0){
 				puts("Receive size of word failed");
-				mutex = 0;
+				pthread_mutex_unlock(&lock);
 				return -1;
 			}
 
 			if(readString(sock, sizeOfWord, &word[0]) < 0){
 				puts("Failed to read index word from worker");
-				mutex = 0;
+				pthread_mutex_unlock(&lock);
 				return -1;
 			}
 
@@ -676,7 +665,7 @@ int updateIndex(int sock){
 
 	puts("Received Index from worker");
 
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 
 	return 1;
 }
@@ -1115,20 +1104,15 @@ int startSearch(int sock){
 		return -1;
 	}
 
-	while(mutex == 1){
-		//wait
-	}
-
-	// Acquire lock
-	mutex = 2;
+	pthread_mutex_lock(&lock);
 
 	if(searchIndex(sock, keywords) < 0){
 		puts("Searching Index failed");
-		mutex = 0;
+		pthread_mutex_unlock(&lock);
 		return -1;
 	}
 
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 
 	return 1;
 }
@@ -1365,6 +1349,11 @@ int rebuildIndex(){
 
 int main(int argc , char *argv[])
 {
+	if (pthread_mutex_init(&lock, NULL) != 0){
+		printf("\n mutex init failed\n");
+		return 1;
+	}
+
 	// Rebuild Index
 	if(rebuildIndex() < 0){
 		puts("Failed to rebuild Index, closing server");
@@ -1449,6 +1438,8 @@ int main(int argc , char *argv[])
         //pthread_join( sniffer_thread , NULL);
         //puts("Handler assigned");
     }
+
+    pthread_mutex_destroy(&lock);
 
     if (client_sock < 0) {
         perror("accept failed");

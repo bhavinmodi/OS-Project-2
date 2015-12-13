@@ -19,7 +19,7 @@
 #define directoryPort 8001
 
 // For mutex
-int mutex = 0;
+pthread_mutex_t lock;
 
 typedef struct{
 	int sock;
@@ -192,19 +192,14 @@ struct serverNode* scanListClient(){
 
 int locker(int operation, int ip[], int port){
 
-	while(mutex == 1){
-		// wait
-	}
-
-	// Lock for use
-	mutex = 1;
+	pthread_mutex_lock(&lock);
 
 	switch(operation){
 	case 0:
 		// Add to list - Register server
 		if(addToList(ip, port) < 0){
 			// Release Lock
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 		break;
@@ -212,7 +207,7 @@ int locker(int operation, int ip[], int port){
 		// Remove for list - Deregister server
 		if(scanListServerDR(ip, port) < 0){
 			// Release Lock
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 		break;
@@ -220,7 +215,7 @@ int locker(int operation, int ip[], int port){
 		// Scan list to check for duplicate servers
 		if(scanListServerR(ip, port) < 0){
 			// Release Lock
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 		break;
@@ -228,30 +223,23 @@ int locker(int operation, int ip[], int port){
 		// Invalid op
 		puts("Invalid Operation");
 		// Release Lock
-		mutex = 0;
+		pthread_mutex_unlock(&lock);
 		return -1;
 	}
 
 	// Release Lock
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 	return 1;
 }
 
 struct serverNode* lockerForServerLookup(){
 	// Need to check lock before scanning
-	if(mutex == 1){
-		while(mutex == 0){
-			// Wait
-		}
-
-		// Lock it for use
-		mutex = 1;
-	}
+	pthread_mutex_lock(&lock);
 
 	struct serverNode *ptr = scanListClient();
 
 	// Release Lock
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 
 	return ptr;
 }
@@ -696,6 +684,11 @@ void* pingFunction(void *args){
 
 int main(){
 
+	if (pthread_mutex_init(&lock, NULL) != 0){
+		printf("\n mutex init failed\n");
+		return 1;
+	}
+
 	int i;
 	const char delim[1] = ".";
 	char address[90];
@@ -779,11 +772,16 @@ int main(){
         }
 
         //Now join the thread , so that we dont terminate before the thread
-        //pthread_join( sniffer_thread , NULL);
+        pthread_join( sniffer_thread , NULL);
+
         puts("Handler assigned");
 
 		puts("Waiting for incoming connections...");
     }
+
+    pthread_mutex_destroy(&lock);
+
+    puts("Exiting");
 
     if (client_sock < 0)
     {

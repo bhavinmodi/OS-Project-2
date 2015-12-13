@@ -19,7 +19,7 @@
 #define WorkerDirectoryPort 8002
 
 // For mutex
-int mutex = 0;
+pthread_mutex_t lock;
 
 typedef struct{
 	int sock;
@@ -203,19 +203,14 @@ struct workerNode* scanListWorker(){
 
 int locker(int operation, int ip[], int port){
 
-	while(mutex == 1){
-		// wait
-	}
-
-	// Lock for use
-	mutex = 1;
+	pthread_mutex_lock(&lock);;
 
 	switch(operation){
 	case 0:
 		// Add to list - Register worker
 		if(addToList(ip, port) < 0){
 			// Release Lock
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 		break;
@@ -223,7 +218,7 @@ int locker(int operation, int ip[], int port){
 		// Remove for list - Deregister worker
 		if(scanListWorkerDR(ip, port) < 0){
 			// Release Lock
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 		break;
@@ -231,7 +226,7 @@ int locker(int operation, int ip[], int port){
 		// Scan list to check for duplicate workers
 		if(scanListworkerR(ip, port) < 0){
 			// Release Lock
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 		break;
@@ -239,28 +234,23 @@ int locker(int operation, int ip[], int port){
 		// Invalid op
 		puts("Invalid Operation");
 		// Release Lock
-		mutex = 0;
+		pthread_mutex_unlock(&lock);
 		return -1;
 	}
 
 	// Release Lock
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 	return 1;
 }
 
 struct workerNode* lockerForWorkerLookup(){
 	// Need to check lock before scanning
-	while(mutex == 1){
-		// Wait
-	}
-
-	// Lock it for use
-	mutex = 1;
+	pthread_mutex_lock(&lock);
 
 	struct workerNode *ptr = scanListWorker();
 
 	// Release Lock
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 
 	return ptr;
 }
@@ -584,12 +574,7 @@ int runWorkerSetup(int sock, int ipArr[]){
 int sendAllWorkersToServer(int sock){
 
 	// Get lock
-	while(mutex == 1){
-		//wait
-	}
-
-	// Acquire lock
-	mutex = 1;
+	pthread_mutex_lock(&lock);
 
 	// Scan through the link list and send send one worker at a time
 	struct workerNode *ptr = head;
@@ -597,11 +582,11 @@ int sendAllWorkersToServer(int sock){
 	if(ptr == NULL){
 		if(sendInt(sock, 0) < 0){
 			puts("Sending no worker present status failed");
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}else{
 			puts("No Worker Found In List");
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			return 1;
 		}
 	}
@@ -615,13 +600,13 @@ int sendAllWorkersToServer(int sock){
 		if(workerStatus(address, ptr->port) < 0){
 			// Worker not present, de-register it and look for another one
 			// Release Lock for de-register and then re-acquire it to continue
-			mutex = 0;
+			pthread_mutex_unlock(&lock);
 			locker(1, ptr->ip, ptr->port);
-			mutex = 1;
+			pthread_mutex_lock(&lock);
 		}else{
 			if(sendWorkerDetails(sock, ptr) < 0){
 				puts("Failed to send worker details");
-				mutex = 0;
+				pthread_mutex_unlock(&lock);
 				return -1;
 			}
 		}
@@ -633,12 +618,12 @@ int sendAllWorkersToServer(int sock){
 	// Inform the server, there are no more workers
 	if(sendInt(sock, 0) < 0){
 		puts("Sending no worker present status failed");
-		mutex = 0;
+		pthread_mutex_unlock(&lock);
 		return -1;
 	}
 
 	// Release lock
-	mutex = 0;
+	pthread_mutex_unlock(&lock);
 	return 1;
 }
 
@@ -741,6 +726,11 @@ void* pingFunction(void *args){
 
 int main(){
 
+	if (pthread_mutex_init(&lock, NULL) != 0){
+		printf("\n mutex init failed\n");
+		return 1;
+	}
+
 	int i;
 	const char delim[1] = ".";
 	char address[90];
@@ -823,11 +813,16 @@ int main(){
         }
 
         //Now join the thread , so that we dont terminate before the thread
-        //pthread_join( sniffer_thread , NULL);
+        pthread_join( sniffer_thread , NULL);
+
         puts("Handler assigned");
 
 		puts("Waiting for incoming connections...");
     }
+
+    pthread_mutex_destroy(&lock);
+
+    puts("Exiting");
 
     if (client_sock < 0)
     {
