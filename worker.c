@@ -463,6 +463,13 @@ int getServerFromDirectory(int *ip, int *port){
 }
 
 int sendIndexToServer(char fileName[]){
+
+	while(mutex == 1){
+		// Wait
+	}
+
+	mutex = 1;
+
 	//Send Lookup Request
 	int ip[4];
 	int port;
@@ -493,6 +500,7 @@ int sendIndexToServer(char fileName[]){
 		if(sendInt(sock, 2) < 0){
 			puts("Send Connector type to server failed");
 			close(sock);
+			mutex = 0;
 			return -1;
 		}
 
@@ -500,17 +508,10 @@ int sendIndexToServer(char fileName[]){
 		if(sendInt(sock, 1) < 0){
 			puts("Send request type to server failed");
 			close(sock);
+			mutex = 0;
 			return -1;
 		}
 	}
-
-	while(mutex == 1){
-		// Wait
-	}
-
-	mutex = 1;
-
-	printf("Send Flag = %d\n",sendFlag);
 
 	int sizeOfWord;
 
