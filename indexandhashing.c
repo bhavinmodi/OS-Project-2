@@ -4,7 +4,8 @@
 #include <stdio.h>   /* printf */
 #define INT_DIGITS 19	
 
-
+void copystring(char **first, char *second);
+void copystringwithoutfree(char **first, char *second);
 struct my_struct* createmy_structStruct();
 struct my_struct* addValuesTomy_struct(struct my_struct *s, char word[], int noOfOccurences, char fileName[]);
 struct my_struct* appendValuesTomy_struct(struct my_struct *s, char word[], int noOfOccurences, char fileName[]);
@@ -14,17 +15,22 @@ struct node* initializeNode();
 struct node* addValueToNode(struct node* n, char c[], int noOfOccurences);
 void addToList(struct node* root, char c[], int noOfOccurences);
 void printLinkedList(struct node* root);
+void deleteLinkedList(struct node* root);
 void sortLinkedList(struct node* root);
+void sortAllSearchedWords(struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
 void hashWordIntoLocalHash(char c[]);
 void hashWordIntoGlobalHash(char docName[], char wordBeingHashed[], int noOfOccurences);
 void LocalHashIterate();
 void addToGlobalHash(char docName[]);
 void globalHashIterate();
+void globalHashCount();
 void freeLocalHash();
+void freeGlobalHash();
 int hashFile(char fileName[]);
 int checkIfLinkedListContains(struct node* root, char docNameToCheck[]);
 void findWordInHash(char c[],struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
-void findMultipleWordsInHash(int numberOfWords);
+//void findMultipleWordsInHash(int numberOfWords);
+void findMultipleWordsInHashWithSTRTOK(char string[], char **finalOutput);
 void computeDocNameIntersection();
 void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
 void hashWordFromString(char string[]);
@@ -33,9 +39,9 @@ void convertGlobalHashIntoString(char **);
 void initializeConversionLocalHashToString();
 //char * convertLocalHashIntoString(char fileName[]);
 void convertLocalHashIntoString(char fileName[], char **dest2);
-void globalHashCount();
 void sortAllSearchedWords(struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
-void findMultipleWordsInHashWithSTRTOK(char string[], char **finalOutput);
+
+
 
 
 //Look at MEMORY tags to find out where you are statically allocating data. See if it can be dynamic.
@@ -121,17 +127,6 @@ struct my_struct* createmy_structStruct()
 	
 	dest->wordBeingHashed = (char*)malloc(sizeof(char)*50);
 	dest->root = initializeNode();
-	//dest->wordBeingHashed = malloc(sizeof(*dest->wordBeingHashed));
-	//dest->noOfTimes = malloc(sizeof(int)*50);
-	//dest->noOfHits = (int)malloc(sizeof(int));
-	
-	//dest->docName= (char**) malloc(50 *sizeof(char*));
-	// int k;
-	// for(k=0;k<50;k++)
-	// {
-		// dest->docName[k] = (char*)malloc(sizeof(char)*50);
-	// }
-	
 	return dest;
 }
 
@@ -153,6 +148,15 @@ struct my_struct* createmy_structForEmptyValues()
 	strncpy(structtopointtoemptyvalues->wordBeingHashed,"EMPTY",sizeOfWordBeingHashed);
 	return structtopointtoemptyvalues;
 	//*finalResult = structtopointtoemptyvalues;
+}
+
+struct my_struct* deletemy_struct(struct my_struct* toDel)
+{
+	free(toDel->wordBeingHashed);
+	free(toDel->root);
+	free(toDel);
+	
+	return toDel;
 }
 
 struct localhashstruct* createLocalHashStruct()
@@ -221,6 +225,28 @@ void printLinkedList(struct node* root)
             conductor = conductor->next;
 			printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
         }
+    }
+}
+
+void deleteLinkedList(struct node* root)
+{
+	//frees all elements of a linked list except the root
+	struct node *conductor;
+	struct node *nextNode;
+    conductor = root; 
+    if ( conductor != 0 && conductor->next != 0) {
+		conductor = conductor->next;
+		//printf("%s || %d \n",conductor->docName,conductor->noOfOccurences);
+        while ( conductor->next != 0)
+        {
+            nextNode = conductor->next;
+			free(conductor->docName);
+			free(conductor);
+			conductor = nextNode;
+        }
+		//to free last element
+		free(conductor->docName);
+		free(conductor);
     }
 }
 
@@ -352,6 +378,16 @@ void freeLocalHash()
 	{
       HASH_DEL(localhashid, s);
       free(s);
+    }
+}
+
+void freeGlobalHash()
+{
+	HASH_ITER(hh, users, s2, tmp2)
+	{
+      HASH_DEL(users, s2);
+	  deleteLinkedList(s2->root);
+      s2 = deletemy_struct(s2);
     }
 }
 
@@ -857,17 +893,24 @@ main()
 	{
 		printf("Hashing file failed \n");
 	}
-	//globalHashIterate();
+	globalHashIterate();
 	//findWordInHash("Duis");
     // findWordInHash("Droid");
 	// findMultipleWordsInHash(4);
-	char blah[] = "we the people jamunda\n";
-	char *result;
-	findMultipleWordsInHashWithSTRTOK(blah,&result);
-	printf("%s \n",result);
+	//char blah[] = "we the people jamunda\n";
+	//char *result;
+	//findMultipleWordsInHashWithSTRTOK(blah,&result);
+	//printf("%s \n",result);
 	//initializeConversionHashToString();
+	
+	printf("Freeing \n");
+	freeGlobalHash();
+	printf("Printing \n");
+	globalHashIterate();
 
+	
 	*/
+	
 	
 	//code used to get global hash word by word
 	//************** DO NOT DELETE****************
@@ -899,9 +942,9 @@ main()
 		// testvar++;
 	}
 	}
-		}
+			}
 	*/
-	
+
 
 
 	
