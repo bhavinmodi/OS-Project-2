@@ -594,7 +594,7 @@ int getWorkerFromDirectory(char fileName[100]){
 		// Connect to worker
 		sock = connectToWorker(ip, port);
 
-		if(sock < 1){
+		if(sock < 0){
 			puts("Connect To Worker failed");
 			return -1;
 		}

@@ -463,13 +463,6 @@ int getServerFromDirectory(int *ip, int *port){
 }
 
 int sendIndexToServer(char fileName[]){
-
-	while(mutex == 1){
-		// Wait
-	}
-
-	mutex = 1;
-
 	//Send Lookup Request
 	int ip[4];
 	int port;
@@ -500,7 +493,6 @@ int sendIndexToServer(char fileName[]){
 		if(sendInt(sock, 2) < 0){
 			puts("Send Connector type to server failed");
 			close(sock);
-			mutex = 0;
 			return -1;
 		}
 
@@ -508,7 +500,6 @@ int sendIndexToServer(char fileName[]){
 		if(sendInt(sock, 1) < 0){
 			puts("Send request type to server failed");
 			close(sock);
-			mutex = 0;
 			return -1;
 		}
 	}
@@ -532,7 +523,6 @@ int sendIndexToServer(char fileName[]){
 			if(sendInt(sock, 1) < 0){
 				puts("Sending '1' indicator that we still have words to send failed");
 				close(sock);
-				mutex = 0;
 				return -1;
 			}
 
@@ -546,7 +536,6 @@ int sendIndexToServer(char fileName[]){
 			if(sendInt(sock, sizeOfWord) < 0){
 				puts("failed to send word size");
 				close(sock);
-				mutex = 0;
 				return -1;
 			}
 
@@ -554,7 +543,6 @@ int sendIndexToServer(char fileName[]){
 			if(sendString(sock, sizeOfWord, word2) < 0){
 				puts("Sending Index Back To Server Failed");
 				close(sock);
-				mutex = 0;
 				return -1;
 			}
 		}
@@ -568,7 +556,6 @@ int sendIndexToServer(char fileName[]){
 		if(sendInt(sock, 0) < 0){
 			puts("Sending '0' for completion of send index to server failed");
 			close(sock);
-			mutex = 0;
 			return -1;
 		}
 	}
@@ -577,8 +564,6 @@ int sendIndexToServer(char fileName[]){
 
 	// Close the connection established with the server
 	close(sock);
-
-	mutex = 0;
 
 	return 1;
 }
@@ -659,11 +644,19 @@ int startIndexing(int sock){
 	close(sock);
 
 	// Perform indexing
+	while(mutex == 1){
+		//wait
+	}
+
+	mutex = 1;
+
 	if(sendIndexToServer(fileName) < 0){
 		puts("Index Generation or Sending Failed");
+		mutex = 0;
 		return -1;
 	}
 
+	mutex = 0;
 	return 1;
 }
 
