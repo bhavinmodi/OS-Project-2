@@ -1036,7 +1036,7 @@ int searchIndex(int sock, char keywords[]){
 	findMultipleWordsInHashWithSTRTOK(keywords,&result);
 
 	// Send the client the search result
-	int sizeOfResult = strlen(result);
+	int sizeOfResult = strlen(result) + 1;
 
 	printf("Result = %s\n",result);
 
@@ -1050,6 +1050,18 @@ int searchIndex(int sock, char keywords[]){
 	if(sendString(sock, sizeOfResult, &result[0]) < 0){
 		puts("Failed to send result to client");
 		return -1;
+	}
+
+	// Get from client if file is to be retrieved
+	int isFileToBeRetrieved;
+	if(readInt(sock, &isFileToBeRetrieved) < 0){
+		puts("Failed to receive retrieval result");
+		return -1;
+	}
+
+	if(isFileToBeRetrieved < 0){
+		// User does not want to retrieve the file
+		return 1;
 	}
 
 	// Get from client which file he wants

@@ -468,6 +468,34 @@ int waitForSearchResult(int sock){
 	//flushing input stream
 	while((c = getchar()) != '\n' && c != EOF);
 
+	// Ask user if any file is to be retrieved
+	printf("Do you want to retrieve a file (Y/N)? ");
+	char input[2];
+	fgets(input, sizeof(input), stdin);
+
+	if(input[0] == 'N' || input[0] == 'n'){
+		// Exit
+		if(sendInt(sock, -1) < 0){
+			puts("Failed to send retrieval status");
+		}
+		return 1;
+	}else if(input[0] == 'N' || input[0] == 'n'){
+		// Continue to retrieval
+		if(sendInt(sock, 1) < 0){
+			puts("Failed to send retrieval status");
+		}
+	}else{
+		// Invalid input exit
+		// Exit
+		if(sendInt(sock, -1) < 0){
+			puts("Failed to send retrieval status");
+		}
+		return 1;
+	}
+
+	//flushing input stream
+	while((c = getchar()) != '\n' && c != EOF);
+
 	char answer[100];
 	printf("Which File do you want to retrieve: ");
 	fgets(answer, sizeof(answer), stdin);

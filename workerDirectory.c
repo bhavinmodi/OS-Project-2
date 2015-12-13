@@ -731,7 +731,7 @@ void* pingFunction(void *args){
 	while(1){
 		runWorkerPing();
 
-		// Wait for 5 seconds
+		// Wait for 10 seconds
 		time_t startTime = time(NULL); // return current time in seconds
 		while (time(NULL) - startTime < 10) {
 		   // Wait
