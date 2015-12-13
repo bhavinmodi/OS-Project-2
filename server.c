@@ -352,7 +352,7 @@ void* deRegisterMenu(void *args)
 	return 0;
 }
 
-void HashIndexLocker(int op, char *word, char keywords[], int *port){
+void HashIndexLocker(int op, char *word, char **search, char keywords[], int *port){
 
 	pthread_mutex_lock(&lock);
 
@@ -368,8 +368,7 @@ void HashIndexLocker(int op, char *word, char keywords[], int *port){
 		break;
 	}
 	case 2:
-		findMultipleWordsInHashWithSTRTOK(keywords,&word);
-		printf("result = %s\n",word);
+		findMultipleWordsInHashWithSTRTOK(keywords,search);
 		break;
 	case 3:
 		*port = checkIfFileExists(word);
@@ -378,7 +377,8 @@ void HashIndexLocker(int op, char *word, char keywords[], int *port){
 		hashFileAndPort(word,*port);
 		break;
 	case 5:
-		// TODO: Delete hash indexes
+		freeFileLocHash();
+		freeGlobalHash();
 		break;
 	}
 
@@ -411,7 +411,7 @@ int updateIndex(int sock){
 				return -1;
 			}
 
-			HashIndexLocker(1, &word[0], NULL, NULL);
+			HashIndexLocker(1, &word[0], NULL, NULL, NULL);
 		}
 	}
 
@@ -450,7 +450,7 @@ int rebuild(int sock, int port){
 		}
 
 		// Add the file to a has table table to know which worker got it
-		HashIndexLocker(4, &fileName[0], NULL, &port);
+		HashIndexLocker(4, &fileName[0], NULL, NULL, &port);
 	}
 
 	// Receive index from worker
@@ -790,7 +790,7 @@ int getWorkerFromDirectory(char fileName[100]){
 		}
 
 		// Add the file to a has table table to know which worker got it
-		HashIndexLocker(4, &fileName[0], NULL, &port);
+		HashIndexLocker(4, &fileName[0], NULL, NULL, &port);
 
 		//Successful
 		// Close connection to worker
@@ -867,7 +867,7 @@ int startIndexing(int sock){
 		printf("File Name Received = %s\n",fileName);
 
 		// If fileName already exists, do not index
-		HashIndexLocker(3, &fileName[0], NULL, &result);
+		HashIndexLocker(3, &fileName[0], NULL, NULL, &result);
 
 		if(result == 1){
 			// Already exists
@@ -1153,12 +1153,12 @@ int sendFileToClient(int sock, char fileName[]){
 int searchIndex(int sock, char keywords[]){
 
 	// Search Hash table
-	char *result;
-	HashIndexLocker(2, result, keywords, NULL);
+	char **result;
+	HashIndexLocker(2, NULL, result, keywords, NULL);
 
 	puts("sizeOfResult Begin");
 	// Send the client the search result
-	int sizeOfResult = strlen(result) + 1;
+	int sizeOfResult = strlen(*result) + 1;
 	puts("sizeOfResult End");
 
 	printf("Result = %s\n",result);
@@ -1170,7 +1170,7 @@ int searchIndex(int sock, char keywords[]){
 	}
 
 	// Send the result
-	if(sendString(sock, sizeOfResult, &result[0]) < 0){
+	if(sendString(sock, sizeOfResult, *result) < 0){
 		puts("Failed to send result to client");
 		return -1;
 	}
@@ -1348,7 +1348,7 @@ void *connection_handler(void *socket_desc)
 		free(socket_desc);
 
 		// Delete existing Hash structures
-		HashIndexLocker(5, NULL, NULL, 0);
+		HashIndexLocker(5, NULL, NULL, NULL, 0);
 
 		rebuildIndex();
 
