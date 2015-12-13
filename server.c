@@ -620,6 +620,8 @@ int getWorkerFromDirectory(char fileName[100]){
 
 int updateIndex(int sock){
 
+	//printf("Update Index started\n");
+
 	while(mutex == 1 || mutex == 2){
 		//wait
 	}
@@ -628,6 +630,7 @@ int updateIndex(int sock){
 
 	// Wait for index from worker
 	int completionIndicator;
+	int sizeOfWord;
 	char word[1024];
 	while(1){
 		if(readInt(sock, &completionIndicator) < 0){
@@ -636,15 +639,25 @@ int updateIndex(int sock){
 			return -1;
 		}
 
+		//printf("Completion indicator = %d\n",completionIndicator);
+
 		if(completionIndicator == 0){
 			// Finished receiving index
 			break;
 		}else{
-			if(readString(sock, 1024, &word[0]) < 0){
+			if(readInt(sock, &sizeOfWord) < 0){
+				puts("Receive size of word failed");
+				mutex = 0;
+				return -1;
+			}
+
+			if(readString(sock, sizeOfWord, &word[0]) < 0){
 				puts("Failed to read index word from worker");
 				mutex = 0;
 				return -1;
 			}
+
+			//printf("word received = %s\n Updating index\n",word);
 
 			//printf("Word Received is : %s \n",word);
 			//printf("Test \n");
@@ -652,6 +665,8 @@ int updateIndex(int sock){
 			char stringToHash[sizeOfWord];
 			strncpy(stringToHash,word,sizeOfWord);
 			hashWordFromString(stringToHash);
+
+			//printf("Updating index complete\n");
 
 			//globalHashIterate();
 		}
@@ -1127,7 +1142,7 @@ void *connection_handler(void *socket_desc)
 	case 1:
 		// Client
 		while(deRegistered == 0){
-			puts("Waiting For Client Choice...");
+			//puts("Waiting For Client Choice...");
 
 			while(1){
 				//initializing new while to look for choice value
@@ -1173,7 +1188,7 @@ void *connection_handler(void *socket_desc)
 		break;
 	case 2:
 		// Worker
-		puts("Waiting for worker choice..");
+		//puts("Waiting for worker choice..");
 
 		if(readInt(sock, &choice) < 0){
 			puts("Read Worker choice failed");
@@ -1189,6 +1204,8 @@ void *connection_handler(void *socket_desc)
 				puts("Update index called");
 				if(updateIndex(sock) < 0){
 					puts("Update Index by worker failed");
+				}else{
+					puts("Update Index by worker success");
 				}
 				break;
 			default:
@@ -1307,7 +1324,7 @@ int rebuildIndex(){
 		//Let Worker know you are the server and doing a rebuild index request
 		if(sendInt(Wsock, 4) < 0){
 			puts("Send connector type from Server to worker rebuild failed");
-			close(WDsock);
+			close(Wsock);
 			return -1;
 		}
 
@@ -1319,6 +1336,9 @@ int rebuildIndex(){
 			close(WDsock);
 			close(Wsock);
 			return -1;
+		}else{
+			// Rebuilding Success, close sockets
+			close(Wsock);
 		}
 
 	}

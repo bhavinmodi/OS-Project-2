@@ -1,5 +1,5 @@
 /*
- * server.c
+ * worker.c
  *
  *  Created on: Nov 24, 2015
  *      Author: Bhavin
@@ -486,6 +486,8 @@ int sendIndexToServer(char fileName[]){
 		}
 	}
 
+	printf("Connected to  Server\n");
+
 	if(sendFlag == 1){
 		// Inform server that you are the worker
 		if(sendInt(sock, 2) < 0){
@@ -500,15 +502,23 @@ int sendIndexToServer(char fileName[]){
 		}
 	}
 
+	printf("Informing  Server complete\n");
+
 	while(mutex == 1){
 		// Wait
 	}
 
 	mutex = 1;
 
+	printf("Send Flag = %d\n",sendFlag);
+
+	int sizeOfWord;
+
 	char *word2=NULL;
 
+	// Hash the File
 	hashFile(fileName);
+
 	//globalHashIterate();
 	printf("Hashing file done \n");
 	initializeConversionLocalHashToString();
@@ -522,16 +532,26 @@ int sendIndexToServer(char fileName[]){
 				puts("Sending '1' indicator that we still have words to send failed");
 				mutex = 0;
 				return -1;
-			}else{
-				//puts("1 sent");
 			}
 
-			if(sendString(sock, 1024, word2) < 0){
+			//printf("Send 1 to indicate we want to send a word of the index \n");
+
+			//printf("word sent = %s\n",word2);
+
+			// Get length of word to be sent
+			sizeOfWord = (int)strlen(word2) + 1;
+
+			if(sendInt(sock, sizeOfWord) < 0){
+				puts("failed to send word size");
+				mutex = 0;
+				return -1;
+			}
+
+			// Send the word
+			if(sendString(sock, sizeOfWord, word2) < 0){
 				puts("Sending Index Back To Server Failed");
 				mutex = 0;
 				return -1;
-			}else{
-				//puts("Word sent");
 			}
 		}
 
@@ -803,8 +823,6 @@ int rebuild(int sock){
 
 	convertGlobalHashIntoString(&word);
 	while(strcmp(word,"EMPTY")!=0){
-		convertGlobalHashIntoString(&word);
-
 		// Send a 1 indicating we still want to send words
 		if(sendInt(sock, 1) < 0){
 			puts("Sending '1' indicator that we still have words to send failed");
@@ -817,6 +835,15 @@ int rebuild(int sock){
 			mutex = 0;
 			return -1;
 		}
+
+		convertGlobalHashIntoString(&word);
+	}
+
+	// Send a 0 indicating we are done
+	if(sendInt(sock, 0) < 0){
+		puts("Sending '0' indicator that we no more words to send failed");
+		mutex = 0;
+		return -1;
 	}
 
 	mutex = 0;
