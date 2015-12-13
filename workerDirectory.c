@@ -813,7 +813,7 @@ int main(){
         }
 
         //Now join the thread , so that we dont terminate before the thread
-        pthread_join( sniffer_thread , NULL);
+        //pthread_join( sniffer_thread , NULL);
 
         puts("Handler assigned");
 

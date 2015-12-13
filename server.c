@@ -173,14 +173,6 @@ int registerWithDirService()
 	}
 	puts("Socket created");
 
-	// Bind the server to its own socket before connecting,
-	//Bind to a specific network interface (and optionally a specific local port)
-	struct sockaddr_in localaddr;
-	localaddr.sin_family = AF_INET;
-	localaddr.sin_addr.s_addr = inet_addr(ServerIP);
-	localaddr.sin_port = ServerPort;
-	bind(sock, (struct sockaddr *)&localaddr, sizeof(localaddr));
-
 	//below should contain the ip address of the Directory Service
 	struct sockaddr_in server;
 	server.sin_family = AF_INET;
