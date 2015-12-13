@@ -76,3 +76,13 @@ void fileLocHashIterate()
 		printf("Port is %d :\n",s->portNo);
     }
 }
+
+void freeFileLocHash()
+{
+	HASH_ITER(hh, hashforfileloc, s3, tmp)
+	{
+      HASH_DEL(hashforfileloc, s3);
+	  free(s3->fileName);
+      free(s3);
+    }
+}

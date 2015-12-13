@@ -6,5 +6,6 @@ void hashFileAndPort(char filename[], int portNumber);
 int findFileLoc(char fileLocToFind[]);
 int checkIfFileExists(char fileLocToFind[]);
 void fileLocHashIterate();
+void freeFileLocHash();
 
 #endif // FILELOCHASH_H_
