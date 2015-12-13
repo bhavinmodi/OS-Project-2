@@ -14,12 +14,12 @@
 #include<arpa/inet.h> //inet_addr
 #include<unistd.h>    //write
 #include<pthread.h> //for threading , link with lpthread
-
-#include <sys/types.h>
+#include<errno.h>
+#include<sys/types.h>
 #include<sys/stat.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
+#include<sys/ioctl.h>
+#include<netinet/in.h>
+#include<net/if.h>
 
 // Server Directory address
 #define ServerDirectoryIP "127.0.0.1"
@@ -166,8 +166,7 @@ int registerWithDirService()
 
 	//Create socket
 	sock = socket(AF_INET , SOCK_STREAM , 0);
-	if (sock == -1)
-	{
+	if (sock == -1){
 		puts("Could not create socket");
 		return -1;
 	}
@@ -181,10 +180,17 @@ int registerWithDirService()
 
 	//Connect to Directory
 	puts("Trying to connect");
-	int connected = -1;
-	while(connected == -1){
-		//Connect to client Directory
-		connected = connect(sock , (struct sockaddr *)&server , sizeof(server));
+	while (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+		// Here is my error
+		printf("Error when connecting! %s\n",strerror(errno));
+
+		// Try Again
+		sock = socket(AF_INET , SOCK_STREAM , 0);
+		if(sock == -1){
+			puts("Could not create socket");
+			return -1;
+		}
+		puts("Socket created");
 	}
 
 	//Connected to Directory
@@ -338,6 +344,152 @@ void* deRegisterMenu(void *args)
 	setDeregisteredTrue();
 
 	return 0;
+}
+
+void HashIndexLocker(int op, char *word, char keywords[], int *port){
+
+	pthread_mutex_lock(&lock);
+
+	switch(op){
+	case 1:
+	{
+		int sizeOfWord = strlen(word);
+		char stringToHash[sizeOfWord];
+		strncpy(stringToHash,word,sizeOfWord);
+		hashWordFromString(stringToHash);
+
+		//globalHashIterate();
+		break;
+	}
+	case 2:
+		findMultipleWordsInHashWithSTRTOK(keywords,&word);
+		break;
+	case 3:
+		*port = checkIfFileExists(word);
+		break;
+	case 4:
+		hashFileAndPort(word,*port);
+		break;
+	case 5:
+		// TODO: Delete hash indexes
+		break;
+	}
+
+	pthread_mutex_unlock(&lock);
+}
+
+int rebuild(int sock, int port){
+	// Receive all file names from workers
+	char fileName[100];
+	int indicator;
+
+	while(1){
+		// Receive indicator if there are more file names
+		if(readInt(sock, &indicator) < 0){
+			puts("Failed to receive indicator if more file names are to be sent");
+			return -1;
+		}
+
+		if(indicator < 0){
+			if(indicator == -2){
+				// Worker failed
+				puts("Worker had a path reading error");
+			}else{
+				// Done receiving file names
+				puts("Done receiving file names");
+			}
+			break;
+		}
+
+		// Receive file name
+		if(readString(sock, 100, &fileName[0]) < 0){
+			puts("Receive file name from worker failed");
+			return -1;
+		}
+
+		// Add the file to a has table table to know which worker got it
+		HashIndexLocker(4, &fileName[0], NULL, &port);
+	}
+
+	// Receive index from worker
+	if(updateIndex(sock) < 0){
+		puts("Failed to receive index from worker");
+		return -1;
+	}
+
+	return 1;
+}
+
+int rebuildIndex(){
+
+	// Connect to Worker Directory
+	int WDsock = connectToWorkerDirectory();
+
+	if(WDsock < 1){
+		puts("Failed to connect to worker directory");
+		return -1;
+	}
+
+	//Let Worker Directory know you are the server and doing a rebuild index request
+	if(sendInt(WDsock, 2) < 0){
+		puts("Send connector type Server failed");
+		close(WDsock);
+		return -1;
+	}
+
+	int ip[4];
+	int port, result;
+	int Wsock;
+
+	// Getting workers one at a time
+	while(1){
+		// Get details of Worker
+		result = askWorkerDirectoryForWorkerDetails(WDsock, &ip[0], &port);
+		if(result < 0){
+			if(result == -2){
+				puts("No more workers");
+				break;
+			}
+
+			puts("Failed to get worker details");
+			return -1;
+		}
+
+		// Connect to worker
+		Wsock = connectToWorker(ip,port);
+		if(Wsock < 0){
+			puts("Connecting to worker failed for rebuilding Index");
+
+			// Try the next worker
+			continue;
+		}
+
+		//Let Worker know you are the server and doing a rebuild index request
+		if(sendInt(Wsock, 4) < 0){
+			puts("Send connector type from Server to worker rebuild failed");
+			close(Wsock);
+			return -1;
+		}
+
+		// Ask Worker for Index and all files
+		result = rebuild(Wsock, port);
+		if(result < 0){
+			puts("Rebuilding Request for Worker failed");
+			// Close sockets
+			close(WDsock);
+			close(Wsock);
+			return -1;
+		}else{
+			// Rebuilding Success, close sockets
+			close(Wsock);
+		}
+
+	}
+
+	// Close sockets
+	close(WDsock);
+	close(Wsock);
+	return 1;
 }
 
 int sendFileToWorker(int sock, char fileName[100]){
@@ -596,7 +748,7 @@ int getWorkerFromDirectory(char fileName[100]){
 		}
 
 		// Add the file to a has table table to know which worker got it
-		hashFileAndPort(fileName,port);
+		HashIndexLocker(4, &fileName[0], NULL, &port);
 
 		//Successful
 		// Close connection to worker
@@ -607,10 +759,6 @@ int getWorkerFromDirectory(char fileName[100]){
 
 int updateIndex(int sock){
 
-	//printf("Update Index started\n");
-
-	pthread_mutex_lock(&lock);
-
 	// Wait for index from worker
 	int completionIndicator;
 	int sizeOfWord;
@@ -618,11 +766,8 @@ int updateIndex(int sock){
 	while(1){
 		if(readInt(sock, &completionIndicator) < 0){
 			puts("Reading completion indicator from worker failed");
-			pthread_mutex_unlock(&lock);
 			return -1;
 		}
-
-		//printf("Completion indicator = %d\n",completionIndicator);
 
 		if(completionIndicator == 0){
 			// Finished receiving index
@@ -630,34 +775,19 @@ int updateIndex(int sock){
 		}else{
 			if(readInt(sock, &sizeOfWord) < 0){
 				puts("Receive size of word failed");
-				pthread_mutex_unlock(&lock);
 				return -1;
 			}
 
 			if(readString(sock, sizeOfWord, &word[0]) < 0){
 				puts("Failed to read index word from worker");
-				pthread_mutex_unlock(&lock);
 				return -1;
 			}
 
-			//printf("word received = %s\n Updating index\n",word);
-
-			//printf("Word Received is : %s \n",word);
-			//printf("Test \n");
-			int sizeOfWord = strlen(word);
-			char stringToHash[sizeOfWord];
-			strncpy(stringToHash,word,sizeOfWord);
-			hashWordFromString(stringToHash);
-
-			//printf("Updating index complete\n");
-
-			//globalHashIterate();
+			HashIndexLocker(1, &word[0], NULL, 0);
 		}
 	}
 
 	puts("Received Index from worker");
-
-	pthread_mutex_unlock(&lock);
 
 	return 1;
 }
@@ -680,6 +810,7 @@ int startIndexing(int sock){
 	char buffer[1024];
 	int filePresent;
 	int fileDetailStatus;
+	int result;
 
 	while(1){
 
@@ -729,7 +860,9 @@ int startIndexing(int sock){
 		printf("File Name Received = %s\n",fileName);
 
 		// If fileName already exists, do not index
-		if(checkIfFileExists(&fileName[0]) == 1){
+		HashIndexLocker(3, &fileName[0], NULL, &result);
+
+		if(result == 1){
 			// Already exists
 			if(sendInt(sock, -1) < 0){
 				puts("Sending will not hash as -1 failed");
@@ -812,7 +945,7 @@ int startIndexing(int sock){
 
 			// Let the client know of indexing failure
 			if(sendInt(sock, -1) < 0){
-				puts("Letting the client know that the server could not find the directory : failure");
+				puts("Letting the client know that the server could not find the directory | Worker | Send the file : failure");
 			}
 			return -1;
 		}else{
@@ -1014,7 +1147,7 @@ int searchIndex(int sock, char keywords[]){
 
 	// Search Hash table
 	char *result;
-	findMultipleWordsInHashWithSTRTOK(keywords,&result);
+	HashIndexLocker(2, result, keywords, 0);
 
 	// Send the client the search result
 	int sizeOfResult = strlen(result) + 1;
@@ -1097,15 +1230,10 @@ int startSearch(int sock){
 		return -1;
 	}
 
-	pthread_mutex_lock(&lock);
-
 	if(searchIndex(sock, keywords) < 0){
 		puts("Searching Index failed");
-		pthread_mutex_unlock(&lock);
 		return -1;
 	}
-
-	pthread_mutex_unlock(&lock);
 
 	return 1;
 }
@@ -1213,6 +1341,19 @@ void *connection_handler(void *socket_desc)
 		free(socket_desc);
 		return 0;
 		break;
+	case 4:
+		// Worker Directory
+		//Free the socket pointer
+		close(sock);
+		free(socket_desc);
+
+		// Delete existing Hash structures
+		HashIndexLocker(5, NULL, NULL, 0);
+
+		rebuildIndex();
+
+		return 0;
+		break;
 	default:
 		puts("Invalid Connector Type");
 	}
@@ -1223,121 +1364,6 @@ void *connection_handler(void *socket_desc)
 	free(socket_desc);
 
 	return 0;
-}
-
-int rebuild(int sock, int port){
-	// Receive all file names from workers
-	char fileName[100];
-	int indicator;
-
-	while(1){
-		// Receive indicator if there are more file names
-		if(readInt(sock, &indicator) < 0){
-			puts("Failed to receive indicator if more file names are to be sent");
-			return -1;
-		}
-
-		if(indicator < 0){
-			if(indicator == -2){
-				// Worker failed
-				puts("Worker had a path reading error");
-			}else{
-				// Done receiving file names
-				puts("Done receiving file names");
-			}
-			break;
-		}
-
-		// Receive file name
-		if(readString(sock, 100, &fileName[0]) < 0){
-			puts("Receive file name from worker failed");
-			return -1;
-		}
-
-		// Hash File name, Add the file to a has table table to know which worker got it
-		hashFileAndPort(fileName,port);
-	}
-
-	// Receive index from worker
-	if(updateIndex(sock) < 0){
-		puts("Failed to receive index from worker");
-		return -1;
-	}
-
-	return 1;
-}
-
-int rebuildIndex(){
-
-	// Connect to Worker Directory
-	int WDsock = connectToWorkerDirectory();
-
-	if(WDsock < 1){
-		puts("Failed to connect to worker directory");
-		return -1;
-	}
-
-	//Let Worker Directory know you are the server and doing a rebuild index request
-	if(sendInt(WDsock, 2) < 0){
-		puts("Send connector type Server failed");
-		close(WDsock);
-		return -1;
-	}
-
-	int ip[4];
-	int port, result;
-	int Wsock;
-
-	// Getting workers one at a time
-	while(1){
-		// Get details of Worker
-		result = askWorkerDirectoryForWorkerDetails(WDsock, &ip[0], &port);
-		if(result < 0){
-			if(result == -2){
-				puts("No more workers");
-				break;
-			}
-
-			puts("Failed to get worker details");
-			return -1;
-		}
-
-		// Connect to worker
-		Wsock = connectToWorker(ip,port);
-		if(Wsock < 0){
-			puts("Connecting to worker failed | Rebuild Index");
-
-			// Close worker directory
-			close(WDsock);
-			return -1;
-		}
-
-		//Let Worker know you are the server and doing a rebuild index request
-		if(sendInt(Wsock, 4) < 0){
-			puts("Send connector type from Server to worker rebuild failed");
-			close(Wsock);
-			return -1;
-		}
-
-		// Ask Worker for Index and all files
-		result = rebuild(Wsock, port);
-		if(result < 0){
-			puts("Rebuilding Request for Worker failed");
-			// Close sockets
-			close(WDsock);
-			close(Wsock);
-			return -1;
-		}else{
-			// Rebuilding Success, close sockets
-			close(Wsock);
-		}
-
-	}
-
-	// Close sockets
-	close(WDsock);
-	close(Wsock);
-	return 1;
 }
 
 int main(int argc , char *argv[])

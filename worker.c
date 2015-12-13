@@ -14,12 +14,12 @@
 #include<unistd.h>    //write
 #include<pthread.h> //for threading , link with lpthread
 #include<sys/stat.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
+#include<sys/types.h>
+#include<sys/ioctl.h>
+#include<netinet/in.h>
+#include<net/if.h>
 #include<dirent.h>
-#include <errno.h>
+#include<errno.h>
 
 // Worker Directory address
 #define WorkerDirectoryIP "127.0.0.1"
@@ -930,8 +930,7 @@ int main(int argc , char *argv[])
 
     //Create socket
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
-    if (socket_desc == -1)
-    {
+    if (socket_desc == -1){
         printf("Could not create socket");
     }
     puts("Socket created");

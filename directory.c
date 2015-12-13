@@ -14,7 +14,7 @@
 #include<stdio.h>
 #include<string.h>
 
-// Client Directory address
+// Client Server Directory address
 #define directoryIP "127.0.0.1"
 #define directoryPort 8001
 
@@ -114,11 +114,11 @@ int scanListServerDR(int ipArr[], int port){
 				}
 			}
 
-			printf("Quick printing ip \n");
+			/*printf("Quick printing ip \n");
 			for(i = 0; i < 4; i++){
 				printf("ip[%d] = %d\n",i,ptr->ip[i]);
 				printf("ipArr[%d] = %d\n",i,ipArr[i]);
-			}
+			}*/
 
 			if(noMatch == 0){
 				//Match Found
@@ -620,12 +620,12 @@ void *connection_handler(void *args)
 		return 0;
 	}
 
-	printf("Got Type Client | Worker | Server = %d\n", type);
+	printf("Got Type Client | Worker | Server | Worker Directory = %d\n", type);
 
 	switch(type){
 		case 0:
 		{
-			puts("Calling Client | Worker");
+			puts("Calling Client | Worker | Worker Directory");
 			// Tell type of request
 			int request = -1;
 			if(readInt(sock, &request) < 0){
