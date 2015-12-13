@@ -465,9 +465,6 @@ int waitForSearchResult(int sock){
 	// Select which file you want from the result
 	char c;
 
-	//flushing input stream
-	while((c = getchar()) != '\n' && c != EOF);
-
 	// Ask user if any file is to be retrieved
 	printf("Do you want to retrieve a file (Y/N)? ");
 	char input[2];
@@ -478,8 +475,11 @@ int waitForSearchResult(int sock){
 		if(sendInt(sock, -1) < 0){
 			puts("Failed to send retrieval status");
 		}
+		//flushing input stream
+		while((c = getchar()) != '\n' && c != EOF);
+
 		return 1;
-	}else if(input[0] == 'N' || input[0] == 'n'){
+	}else if(input[0] == 'Y' || input[0] == 'y'){
 		// Continue to retrieval
 		if(sendInt(sock, 1) < 0){
 			puts("Failed to send retrieval status");
@@ -490,6 +490,10 @@ int waitForSearchResult(int sock){
 		if(sendInt(sock, -1) < 0){
 			puts("Failed to send retrieval status");
 		}
+
+		//flushing input stream
+		while((c = getchar()) != '\n' && c != EOF);
+
 		return 1;
 	}
 

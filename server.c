@@ -1050,6 +1050,7 @@ int searchIndex(int sock, char keywords[]){
 
 	if(isFileToBeRetrieved < 0){
 		// User does not want to retrieve the file
+		puts("User does not want to retrieve a file");
 		return 1;
 	}
 
