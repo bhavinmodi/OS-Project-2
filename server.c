@@ -352,7 +352,7 @@ void* deRegisterMenu(void *args)
 	return 0;
 }
 
-void HashIndexLocker(int op, char *word, char **search, char keywords[], int *port){
+char * HashIndexLocker(int op, char *word, char **search, char keywords[], int *port){
 
 	pthread_mutex_lock(&lock);
 
@@ -368,7 +368,7 @@ void HashIndexLocker(int op, char *word, char **search, char keywords[], int *po
 		break;
 	}
 	case 2:
-		findMultipleWordsInHashWithSTRTOK(keywords,search);
+		findMultipleWordsInHashWithSTRTOK(keywords,&word);
 		break;
 	case 3:
 		*port = checkIfFileExists(word);
@@ -383,6 +383,8 @@ void HashIndexLocker(int op, char *word, char **search, char keywords[], int *po
 	}
 
 	pthread_mutex_unlock(&lock);
+
+	return word;
 }
 
 int updateIndex(int sock){
@@ -490,10 +492,14 @@ int rebuildIndex(){
 		if(result < 0){
 			if(result == -2){
 				puts("No more workers");
+				// Close sockets
+				close(WDsock);
 				break;
 			}
 
 			puts("Failed to get worker details");
+			// Close sockets
+			close(WDsock);
 			return -1;
 		}
 
@@ -528,9 +534,6 @@ int rebuildIndex(){
 
 	}
 
-	// Close sockets
-	close(WDsock);
-	close(Wsock);
 	return 1;
 }
 
@@ -1153,13 +1156,11 @@ int sendFileToClient(int sock, char fileName[]){
 int searchIndex(int sock, char keywords[]){
 
 	// Search Hash table
-	char **result;
-	HashIndexLocker(2, NULL, result, keywords, NULL);
+	char *result;
+	result = HashIndexLocker(2, result, NULL, keywords, NULL);
 
-	puts("sizeOfResult Begin");
 	// Send the client the search result
-	int sizeOfResult = strlen(*result) + 1;
-	puts("sizeOfResult End");
+	int sizeOfResult = strlen(result) + 1;
 
 	printf("Result = %s\n",result);
 
@@ -1170,7 +1171,7 @@ int searchIndex(int sock, char keywords[]){
 	}
 
 	// Send the result
-	if(sendString(sock, sizeOfResult, *result) < 0){
+	if(sendString(sock, sizeOfResult, result) < 0){
 		puts("Failed to send result to client");
 		return -1;
 	}

@@ -474,6 +474,7 @@ int waitForSearchResult(int sock){
 		// Exit
 		if(sendInt(sock, -1) < 0){
 			puts("Failed to send retrieval status");
+			return -1;
 		}
 		//flushing input stream
 		while((c = getchar()) != '\n' && c != EOF);
@@ -483,12 +484,14 @@ int waitForSearchResult(int sock){
 		// Continue to retrieval
 		if(sendInt(sock, 1) < 0){
 			puts("Failed to send retrieval status");
+			return -1;
 		}
 	}else{
 		// Invalid input exit
 		// Exit
 		if(sendInt(sock, -1) < 0){
 			puts("Failed to send retrieval status");
+			return -1;
 		}
 
 		//flushing input stream
@@ -765,11 +768,13 @@ int clientInput(int sock){
 		// Send the string across
 		if(sendString(sock, 100, &keywords[0]) < 0){
 			puts("Sending keywords failed");
+			return -1;
 		}
 
 		// Wait for result
 		if(waitForSearchResult(sock) < 0){
 			puts("Search Result from server failed.");
+			return -1;
 		}
 
 		break;
@@ -805,7 +810,7 @@ int startRetryMode(){
 	// Get a new server
 	while(1){
 		if(getServerFromDirectory(&ip[0], &port) < 0){
-			printf("No Server Found");
+			puts("No Server Found");
 			// Try again after 1 minute
 			time_t startTime = time(NULL); // return current time in seconds
 			while (time(NULL) - startTime < 30) {
