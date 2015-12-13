@@ -813,10 +813,11 @@ int rebuild(int sock){
 		}
 	}
 
-	 pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&lock);
 
 	initializeConversionGlobalHashToString();
 	char *word=NULL;
+	int sizeOfWord;
 
 	convertGlobalHashIntoString(&word);
 	while(strcmp(word,"EMPTY")!=0){
@@ -827,9 +828,19 @@ int rebuild(int sock){
 			return -1;
 		}
 
-		if(sendString(sock, 1024, word) < 0){
-			puts("Sending Index To Server for rebuilding Failed");
-			pthread_mutex_unlock(&lock);
+		// Get length of word to be sent
+		sizeOfWord = (int)strlen(word) + 1;
+
+		if(sendInt(sock, sizeOfWord) < 0){
+			puts("failed to send word size");
+			close(sock);
+			return -1;
+		}
+
+		// Send the word
+		if(sendString(sock, sizeOfWord, word) < 0){
+			puts("Sending Index Back To Server Failed");
+			close(sock);
 			return -1;
 		}
 

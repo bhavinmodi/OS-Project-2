@@ -39,6 +39,12 @@ pthread_mutex_t lock;
 //the thread function
 int deRegistered=0;
 
+// Prototype Declaration
+int connectToWorkerDirectory();
+int askWorkerDirectoryForWorkerDetails(int, int*, int*);
+int getWorkerFromDirectory(char []);
+int connectToWorker(int [], int);
+
 int waitForAck(int sock){
 	//Wait for Ack
 	int ack;
@@ -363,6 +369,7 @@ void HashIndexLocker(int op, char *word, char keywords[], int *port){
 	}
 	case 2:
 		findMultipleWordsInHashWithSTRTOK(keywords,&word);
+		printf("result = %s\n",word);
 		break;
 	case 3:
 		*port = checkIfFileExists(word);
@@ -376,6 +383,41 @@ void HashIndexLocker(int op, char *word, char keywords[], int *port){
 	}
 
 	pthread_mutex_unlock(&lock);
+}
+
+int updateIndex(int sock){
+
+	// Wait for index from worker
+	int completionIndicator;
+	int sizeOfWord;
+	char word[1024];
+	while(1){
+		if(readInt(sock, &completionIndicator) < 0){
+			puts("Reading completion indicator from worker failed");
+			return -1;
+		}
+
+		if(completionIndicator == 0){
+			// Finished receiving index
+			break;
+		}else{
+			if(readInt(sock, &sizeOfWord) < 0){
+				puts("Receive size of word failed");
+				return -1;
+			}
+
+			if(readString(sock, sizeOfWord, &word[0]) < 0){
+				puts("Failed to read index word from worker");
+				return -1;
+			}
+
+			HashIndexLocker(1, &word[0], NULL, NULL);
+		}
+	}
+
+	puts("Received Index from worker");
+
+	return 1;
 }
 
 int rebuild(int sock, int port){
@@ -757,41 +799,6 @@ int getWorkerFromDirectory(char fileName[100]){
 		return 1;
 }
 
-int updateIndex(int sock){
-
-	// Wait for index from worker
-	int completionIndicator;
-	int sizeOfWord;
-	char word[1024];
-	while(1){
-		if(readInt(sock, &completionIndicator) < 0){
-			puts("Reading completion indicator from worker failed");
-			return -1;
-		}
-
-		if(completionIndicator == 0){
-			// Finished receiving index
-			break;
-		}else{
-			if(readInt(sock, &sizeOfWord) < 0){
-				puts("Receive size of word failed");
-				return -1;
-			}
-
-			if(readString(sock, sizeOfWord, &word[0]) < 0){
-				puts("Failed to read index word from worker");
-				return -1;
-			}
-
-			HashIndexLocker(1, &word[0], NULL, 0);
-		}
-	}
-
-	puts("Received Index from worker");
-
-	return 1;
-}
-
 void deleteFile(char fileName[]){
 	int ret = remove(fileName);
 
@@ -1147,10 +1154,12 @@ int searchIndex(int sock, char keywords[]){
 
 	// Search Hash table
 	char *result;
-	HashIndexLocker(2, result, keywords, 0);
+	HashIndexLocker(2, result, keywords, NULL);
 
+	puts("sizeOfResult Begin");
 	// Send the client the search result
 	int sizeOfResult = strlen(result) + 1;
+	puts("sizeOfResult End");
 
 	printf("Result = %s\n",result);
 
@@ -1216,17 +1225,8 @@ int startSearch(int sock){
 	char keywords[100];
 
 	// Receive keywords
-	while(1){
-		if(recv(sock, &keywords, sizeof(char)*100, 0) < 0){
-			puts("Receive Keywords failed");
-			return -1;
-		}else{
-			break;
-		}
-	}
-
-	// Send Ack
-	if(sendAck(sock) < 0){
+	if(readString(sock, 100, &keywords[0]) < 0){
+		puts("Receive Keywords failed");
 		return -1;
 	}
 
