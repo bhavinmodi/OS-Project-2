@@ -492,17 +492,17 @@ int sendIndexToServer(char fileName[]){
 		// Inform server that you are the worker
 		if(sendInt(sock, 2) < 0){
 			puts("Send Connector type to server failed");
+			close(sock);
 			return -1;
 		}
 
 		// Inform server the purpose : Indexing
 		if(sendInt(sock, 1) < 0){
 			puts("Send request type to server failed");
+			close(sock);
 			return -1;
 		}
 	}
-
-	printf("Informing  Server complete\n");
 
 	while(mutex == 1){
 		// Wait
@@ -530,6 +530,7 @@ int sendIndexToServer(char fileName[]){
 			// Send a 1 indicating we still want to send words
 			if(sendInt(sock, 1) < 0){
 				puts("Sending '1' indicator that we still have words to send failed");
+				close(sock);
 				mutex = 0;
 				return -1;
 			}
@@ -543,6 +544,7 @@ int sendIndexToServer(char fileName[]){
 
 			if(sendInt(sock, sizeOfWord) < 0){
 				puts("failed to send word size");
+				close(sock);
 				mutex = 0;
 				return -1;
 			}
@@ -550,6 +552,7 @@ int sendIndexToServer(char fileName[]){
 			// Send the word
 			if(sendString(sock, sizeOfWord, word2) < 0){
 				puts("Sending Index Back To Server Failed");
+				close(sock);
 				mutex = 0;
 				return -1;
 			}
@@ -563,6 +566,7 @@ int sendIndexToServer(char fileName[]){
 		// Send 0 to indicate completion
 		if(sendInt(sock, 0) < 0){
 			puts("Sending '0' for completion of send index to server failed");
+			close(sock);
 			mutex = 0;
 			return -1;
 		}
@@ -574,6 +578,7 @@ int sendIndexToServer(char fileName[]){
 	close(sock);
 
 	mutex = 0;
+
 	return 1;
 }
 
