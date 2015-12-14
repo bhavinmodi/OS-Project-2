@@ -126,10 +126,16 @@ int scanListServerDR(int ipArr[], int port){
 
 				//Delete Node
 				if(ptr == head){
-					head = NULL;
+					head = ptr->next;
+					if(ptr->next == NULL){
+						curr = head;
+					}
 					free(ptr);
 				}else{
 					follow->next = ptr->next;
+					if(ptr->next == NULL){
+						curr = follow;
+					}
 					free(ptr);
 				}
 				break;

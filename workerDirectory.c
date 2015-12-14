@@ -26,6 +26,11 @@
 // For mutex
 pthread_mutex_t lock;
 
+// Function Prototypes
+void runWorkerPing();
+int workerStatus(char [], int);
+int sendAllWorkersToServer(int);
+
 typedef struct{
 	int sock;
 	int ip[4];
@@ -38,6 +43,42 @@ struct workerNode
 	int load;
 	struct workerNode *next;
 }*head, *curr;
+
+int sendAck(int sock)
+{
+	int ackValue = 1;
+
+	if(send(sock, &ackValue, sizeof(int), 0) > 0){
+		puts("Ack Sent");
+		return 1;
+	}else{
+		return -1;
+	}
+}
+
+int waitForAck(int sock){
+	//Wait for Ack
+	int ack;
+
+	while(1){
+		if(recv(sock , &ack , sizeof(int),0) < 0){
+			//Failure break
+			return -1;
+		}else{
+			puts("Got ACK");
+			//Got ACK
+			return 1;
+		}
+	}
+
+	//Check Ack
+	if(ack == 0){
+		//Failure break
+		return -1;
+	}
+
+	return 1;
+}
 
 int readInt(int sock, int* a){
 	int statusOfRead, ackValue=1, statusOfAck;
@@ -58,7 +99,32 @@ int readInt(int sock, int* a){
 	return 1;
 }
 
+int sendInt(int sock, int a){
+	int ackValue;
+
+	if(send(sock , &a , sizeof(int) , 0) < 0){
+		puts("Send Failed");
+		return -1;
+	}
+	while(1){
+		if(recv(sock , &ackValue , sizeof(int),0) < 0){
+			puts("Send Failed");
+			return -1;
+		}else{
+			if(ackValue == 1){
+				//puts("Got Ack");
+				return 1;
+			}else{
+				puts("Send Failed");
+				return -1;
+			}
+		}
+	}
+}
+
 int addToList(int ipArr[], int port){
+	printf("Worker added to list = port = %d\n",port);
+
 	int i;
 
 	struct workerNode *ptr = (struct workerNode*)malloc(sizeof(struct workerNode));
@@ -82,6 +148,16 @@ int addToList(int ipArr[], int port){
 		curr->next = ptr;
 		curr = ptr;
 	}
+
+	// dump list
+	/*ptr = head;
+	if(ptr != NULL){
+		printf("List Dump: port -> %d\n",ptr->port);
+	}
+	while(ptr->next != NULL){
+		ptr = ptr->next;
+		printf("List Dump: port -> %d\n",ptr->port);
+	}*/
 
 	return 1;
 }
@@ -143,10 +219,16 @@ int scanListWorkerDR(int ipArr[], int port){
 
 				//Delete Node
 				if(ptr == head){
-					head = NULL;
+					head = ptr->next;
+					if(ptr->next == NULL){
+						curr = head;
+					}
 					free(ptr);
 				}else{
 					follow->next = ptr->next;
+					if(ptr->next == NULL){
+						curr = follow;
+					}
 					free(ptr);
 				}
 				break;
@@ -379,9 +461,38 @@ void informServerOfWorkerDeregister(){
 	close(socks);
 }
 
-int locker(int operation, int ip[], int port){
+void runWorkerPing(){
+	struct workerNode *ptr = head;
 
-	pthread_mutex_lock(&lock);;
+	int i = 0;
+
+	while(ptr != NULL){
+
+		// Get IP and Port and Ping the worker
+		//Convert ip to string
+		char address[50];
+		sprintf(address, "%d.%d.%d.%d", ptr->ip[0], ptr->ip[1], ptr->ip[2], ptr->ip[3]);
+
+		printf("Worker  %d : ip = %s : port = %d\n",i,address,ptr->port);
+
+		if(workerStatus(address, ptr->port) < 0) {
+			// Deregister the worker
+			scanListWorkerDR(ptr->ip, ptr->port);
+
+			puts("Removing");
+		}else{
+			puts("Keeping");
+		}
+
+		ptr = ptr->next;
+		i++;
+	}
+
+}
+
+int locker(int operation, int ip[], int port, int sock){
+
+	pthread_mutex_lock(&lock);
 
 	switch(operation){
 	case 0:
@@ -414,6 +525,18 @@ int locker(int operation, int ip[], int port){
 			return -1;
 		}
 		break;
+	case 3:
+		runWorkerPing();
+		break;
+	case 4:
+		if(sendAllWorkersToServer(sock) < 0){
+			pthread_mutex_unlock(&lock);
+			return -1;
+		}else{
+			pthread_mutex_unlock(&lock);
+			return 1;
+		}
+		break;
 	default:
 		// Invalid op
 		puts("Invalid Operation");
@@ -439,72 +562,13 @@ struct workerNode* lockerForWorkerLookup(){
 	return ptr;
 }
 
-int sendAck(int sock)
-{
-	int ackValue = 1;
-
-	if(send(sock, &ackValue, sizeof(int), 0) > 0){
-		puts("Ack Sent");
-		return 1;
-	}else{
-		return -1;
-	}
-}
-
-int waitForAck(int sock){
-	//Wait for Ack
-	int ack;
-
-	while(1){
-		if(recv(sock , &ack , sizeof(int),0) < 0){
-			//Failure break
-			return -1;
-		}else{
-			puts("Got ACK");
-			//Got ACK
-			return 1;
-		}
-	}
-
-	//Check Ack
-	if(ack == 0){
-		//Failure break
-		return -1;
-	}
-
-	return 1;
-}
-
-int sendInt(int sock, int a){
-	int ackValue;
-
-	if(send(sock , &a , sizeof(int) , 0) < 0){
-		puts("Send Failed");
-		return -1;
-	}
-	while(1){
-		if(recv(sock , &ackValue , sizeof(int),0) < 0){
-			puts("Send Failed");
-			return -1;
-		}else{
-			if(ackValue == 1){
-				puts("Got Ack");
-				return 1;
-			}else{
-				puts("Send Failed");
-				return -1;
-			}
-		}
-	}
-}
-
 int registerWorker(int ipArr[], int port){
 	//Register the server and Check for duplicate
-	if(locker(2, ipArr, port) < 0){
+	if(locker(2, ipArr, port, 0) < 0){
 		puts("Duplicate: Existing IP and Port Address");
 		return -1;
 	}else{
-		if(locker(0, ipArr, port) < 0){
+		if(locker(0, ipArr, port, 0) < 0){
 			puts("Creating Worker Node Failed");
 			return -1;
 		}
@@ -517,7 +581,7 @@ int registerWorker(int ipArr[], int port){
 
 int deRegisterWorker(int ipArr[], int port){
 	//Deregister Worker
-	if(locker(1, ipArr, port) < 0){
+	if(locker(1, ipArr, port, 0) < 0){
 		puts("Deregister Failed");
 		return -1;
 	}else{
@@ -527,14 +591,12 @@ int deRegisterWorker(int ipArr[], int port){
 }
 
 int workerStatus(char ip_addr[], int port){
-	int sock;
+	int sock = -1;
 	struct sockaddr_in server;
 
 	//Create socket
-	sock = socket(AF_INET , SOCK_STREAM , 0);
-	if (sock == -1) {
-		puts("Could not create socket");
-		return -1;
+	while(sock < 0) {
+		sock = socket(AF_INET , SOCK_STREAM , 0);
 	}
 	puts("Socket created");
 
@@ -565,6 +627,9 @@ int workerStatus(char ip_addr[], int port){
 		return 1;
 	}else{
 		// Worker is not available
+		printf("Error when connecting! %s\n",strerror(errno));
+
+		puts("Failed to connect");
 		return -1;
 	}
 }
@@ -625,7 +690,7 @@ int runWorkerLookup(int sock){
 		// Worker found, make sure it is still alive by pinging it
 		if(workerStatus(address, ptr->port) < 0){
 			// Worker not present, deregister it and look for another one
-			locker(1, ptr->ip, ptr->port);
+			locker(1, ptr->ip, ptr->port, 0);
 			runWorkerLookup(sock);
 		}
 
@@ -756,21 +821,15 @@ int runWorkerSetup(int sock, int ipArr[]){
 }
 
 int sendAllWorkersToServer(int sock){
-
-	// Get lock
-	pthread_mutex_lock(&lock);
-
 	// Scan through the link list and send send one worker at a time
 	struct workerNode *ptr = head;
 
 	if(ptr == NULL){
 		if(sendInt(sock, 0) < 0){
 			puts("Sending no worker present status failed");
-			pthread_mutex_unlock(&lock);
 			return -1;
 		}else{
 			puts("No Worker Found In List");
-			pthread_mutex_unlock(&lock);
 			return 1;
 		}
 	}
@@ -783,14 +842,10 @@ int sendAllWorkersToServer(int sock){
 		// Worker found, make sure it is still alive by pinging it
 		if(workerStatus(address, ptr->port) < 0){
 			// Worker not present, de-register it and look for another one
-			// Release Lock for de-register and then re-acquire it to continue
-			pthread_mutex_unlock(&lock);
-			locker(1, ptr->ip, ptr->port);
-			pthread_mutex_lock(&lock);
+			scanListWorkerDR(ptr->ip, ptr->port);
 		}else{
 			if(sendWorkerDetails(sock, ptr) < 0){
 				puts("Failed to send worker details");
-				pthread_mutex_unlock(&lock);
 				return -1;
 			}
 		}
@@ -802,33 +857,10 @@ int sendAllWorkersToServer(int sock){
 	// Inform the server, there are no more workers
 	if(sendInt(sock, 0) < 0){
 		puts("Sending no worker present status failed");
-		pthread_mutex_unlock(&lock);
 		return -1;
 	}
 
-	// Release lock
-	pthread_mutex_unlock(&lock);
 	return 1;
-}
-
-void runWorkerPing(){
-	struct workerNode *ptr = head;
-
-	while(ptr != NULL){
-
-		// Get IP and Port and Ping the worker
-		//Convert ip to string
-		char address[50];
-		sprintf(address, "%d.%d.%d.%d", ptr->ip[0], ptr->ip[1], ptr->ip[2], ptr->ip[3]);
-
-		if(workerStatus(address, ptr->port) < 0) {
-			// Deregister the worker
-			locker(1, ptr->ip, ptr->port);
-		}
-
-		ptr = ptr->next;
-	}
-
 }
 
 /*
@@ -846,6 +878,7 @@ void *connection_handler(void *args)
 	sock = initArgs->sock;
 	for(i = 0; i < 4; i++){
 		ipArr[i] = initArgs->ip[i];
+		printf("ip[%d] = %d\n",i,ipArr[i]);
 	}
 
 	puts("Connection Started");
@@ -880,7 +913,7 @@ void *connection_handler(void *args)
 		case 2:
 			puts("Server Calling Rebuild Index Request");
 			// Rebuild Index request from server
-			if(sendAllWorkersToServer(sock) < 0){
+			if(locker(4, NULL, 0, sock) < 0){
 				puts("Rebuild Failed");
 			}
 			break;
@@ -898,11 +931,11 @@ void *connection_handler(void *args)
 void* pingFunction(void *args){
 	// Continue pinging till the directory is running
 	while(1){
-		runWorkerPing();
+		locker(3, NULL, 0, 0);
 
 		// Wait for 10 seconds
 		time_t startTime = time(NULL); // return current time in seconds
-		while (time(NULL) - startTime < 10) {
+		while (time(NULL) - startTime < 20) {
 		   // Wait
 		}
 	}

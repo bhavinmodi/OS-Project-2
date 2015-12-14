@@ -31,7 +31,7 @@
 
 // Worker Port
 #define WorkerIP "127.0.0.1"
-#define WorkerPort 8021
+#define WorkerPort 8023
 
 //the thread function
 int deRegistered=0;
@@ -948,7 +948,6 @@ int main(int argc , char *argv[])
 
     //Prepare the sockaddr_in structure
     server.sin_family = AF_INET;
-    //server.sin_addr.s_addr = INADDR_ANY;
     server.sin_addr.s_addr = inet_addr(WorkerIP);
     server.sin_port = htons(WorkerPort);
 
@@ -962,7 +961,7 @@ int main(int argc , char *argv[])
     puts("bind done");
 
     //Listen
-    listen(socket_desc , 3);
+    listen(socket_desc , 10);
 
 	//adding code for thread that is supposed to send deregister info to directory
 
