@@ -40,6 +40,9 @@ void initializeConversionLocalHashToString();
 //char * convertLocalHashIntoString(char fileName[]);
 void convertLocalHashIntoString(char fileName[], char **dest2);
 void sortAllSearchedWords(struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
+// void findMultipleWordsInHashNewRanker(char string[], char **finalOutput);
+void computeRank(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
+void fullPrecisionRanker(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter, int noOfMatches);
 
 
 
@@ -146,6 +149,8 @@ struct my_struct* createmy_structForEmptyValues()
 {
 	struct my_struct* structtopointtoemptyvalues = createmy_structStruct();
 	strncpy(structtopointtoemptyvalues->wordBeingHashed,"EMPTY",sizeOfWordBeingHashed);
+	structtopointtoemptyvalues->root = initializeNode();
+	structtopointtoemptyvalues->root = addValueToNode(structtopointtoemptyvalues->root, "EMPTY", -1);
 	return structtopointtoemptyvalues;
 	//*finalResult = structtopointtoemptyvalues;
 }
@@ -527,6 +532,7 @@ void findMultipleWordsInHash(int numberOfWords)
 */
 
 //TODO
+/*
 void findMultipleWordsInHashWithSTRTOK(char string[], char **finalOutput)
 {
 	structtopointtoemptyvalues = createmy_structForEmptyValues();
@@ -547,6 +553,33 @@ void findMultipleWordsInHashWithSTRTOK(char string[], char **finalOutput)
     // printf("Going to print test \n");
 	char *test;
 	computeDocNameIntersectionWithCharStar(&test,arrayOfStructs,&arrayOfStructsCounter);
+	
+	*finalOutput = test;
+	//printf("Test value is : \n %s \n",test);
+}
+*/
+
+void findMultipleWordsInHashWithSTRTOK(char string[], char **finalOutput)
+{
+	structtopointtoemptyvalues = createmy_structForEmptyValues();
+	
+	struct my_struct *arrayOfStructs[50];
+	int arrayOfStructsCounter=0;
+	
+	char *token=NULL;
+	char *endPtr;
+	char delimiters[] = " \n";
+	token = strtok_r(string, delimiters,&endPtr);
+	// printf("Word being searched is : %s \n",token);
+        while(token!=NULL)
+        {
+        	findWordInHash(token,arrayOfStructs,&arrayOfStructsCounter);
+        	token = strtok_r(NULL,delimiters,&endPtr);
+        }
+    // printf("Going to print test \n");
+	char *test;
+	//computeDocNameIntersectionWithCharStar(&test,arrayOfStructs,&arrayOfStructsCounter);
+	computeRank(&test,arrayOfStructs,&arrayOfStructsCounter);
 	
 	*finalOutput = test;
 	//printf("Test value is : \n %s \n",test);
@@ -687,38 +720,265 @@ void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct
 		
 		primary=primary->next;
 	}
+}
 	
+void computeRank(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter)
+{
 	
+	char *output = malloc(sizeof(char)*100);
+	output = " ";
+	char tempout[100];
+	char *nullTerminator = "\0";
 	
+	int rank=1;
+	
+	char *rankHeader = "----------SEARCH RESULTS--------\n";
+	copystringwithoutfree(&output,rankHeader);
+	
+	//this array gives the number of occurences related to a docName in arrayOfStructs[i]
+	int arrayForOccurencesEachWord[*arrayOfStructsCounter+1];
+	
+	if(*arrayOfStructsCounter==0)
+	{
+		printf("Error. System has not searched for any words \n");
+	}
+	sortAllSearchedWords(arrayOfStructs,arrayOfStructsCounter);
+	
+	int initialValue=0;
+	while(strcmp((arrayOfStructs[initialValue]->wordBeingHashed),"EMPTY")==0)
+	{
+		initialValue++;
+	}
+	
+	struct node* primary;
+	
+	if(initialValue>=*arrayOfStructsCounter)
+	{
+		 primary = 0;
+		 sprintf(tempout,"Search query only contains words not found in hash\n");
+		 copystring(&output,tempout);
+	}
+	else
+	{
+		 primary = arrayOfStructs[0]->root;
+	}
+	
+	//struct node* primary = arrayOfStructs[0]->root;
+	int varToCheckAtLeastOneMatch = 0;
+	//start some form of loop
+	while(primary!=0 && rank<11)
+	{
+		char docNameBeingChecked[50];
+		strncpy(docNameBeingChecked,primary->docName,50);
+		arrayForOccurencesEachWord[0] = checkIfLinkedListContains(arrayOfStructs[0]->root, docNameBeingChecked);
+		int i=1;
+		int flag=0;
+		while(i<*arrayOfStructsCounter)
+		{
+			arrayForOccurencesEachWord[i] = checkIfLinkedListContains(arrayOfStructs[i]->root, docNameBeingChecked);
+			if(arrayForOccurencesEachWord[i]==0)
+				flag = 1;
+			i++;
+		}
+		
+		if(flag==0)
+		{
+			//this should show that array of N words have one common docName
+			varToCheckAtLeastOneMatch++;
+			// printf("Rank %d :\n",rank);
+			sprintf(tempout,"Rank %d :\n",rank);
+			copystring(&output,tempout);
+			sprintf(tempout,"%s matches the following words being searched \n",docNameBeingChecked);
+			copystring(&output,tempout);
+			int j=0;
+			while(j<*arrayOfStructsCounter)
+			{
+				sprintf(tempout,"%s || %d \n",arrayOfStructs[j]->wordBeingHashed,arrayForOccurencesEachWord[j]);
+				copystring(&output,tempout);
+				j++;
+			}
+			rank++;
+		}
+		
+		if(primary->next==0)
+			break;
+		
+		primary=primary->next;
+	}
 	//end the loop
-	
 	if(varToCheckAtLeastOneMatch==0)
 	{
-		sprintf(tempout,"No document matches the given set of words \n");
-		
-		//new code to show best in rest of the words
-		copystringwithoutfree(&output,tempout);
-		sprintf(tempout,"Printing documents containing maximum occurences for each word\n");
-		copystring(&output,tempout);
-		int j=0;
-		while(j<*arrayOfStructsCounter)
+		if(*arrayOfStructsCounter-1<=2)
 		{
-			if(strcmp(arrayOfStructs[j]->wordBeingHashed,"EMPTY")!=0)
-			{
-			sprintf(tempout,"Word : %s\n Doc Name : %s\n Count : %d\n\n",arrayOfStructs[j]->wordBeingHashed,arrayOfStructs[j]->root->docName,arrayOfStructs[j]->root->noOfOccurences);
+			sprintf(tempout,"No document matches for all these words\n");
+			//new code to show best in rest of the words
 			copystring(&output,tempout);
+			sprintf(tempout,"Printing documents containing maximum occurences for each word\n");
+			copystring(&output,tempout);
+			int j=0;
+			while(j<*arrayOfStructsCounter)
+			{
+				if(strcmp(arrayOfStructs[j]->wordBeingHashed,"EMPTY")!=0)
+				{
+				sprintf(tempout,"Word : %s\n Doc Name : %s\n Count : %d\n\n",arrayOfStructs[j]->wordBeingHashed,arrayOfStructs[j]->root->docName,arrayOfStructs[j]->root->noOfOccurences);
+				copystring(&output,tempout);
+				}
+				j++;
 			}
-			j++;
+			//copystring(&output,nullTerminator);
 		}
-		copystring(&output,nullTerminator);
+		else
+		{
+			//triggered when the number of words to match are more than 2
+			//sprintf(tempout,"No document matches for any %d words.\nTrying for %d words\n",(*arrayOfStructsCounter-1),(*arrayOfStructsCounter-2));
+			//copystringwithoutfree(&output,tempout);
+			fullPrecisionRanker(&output, arrayOfStructs, arrayOfStructsCounter, *arrayOfStructsCounter-2);
+			
+		}
 	}
 	copystring(&output,nullTerminator);
-	//put some check to see if at least one doc has all words
-	
-	//return strdup(output);
-	//copystring(&output,nullTerminator);
 	*finalOutput = output;
-	//free(output);
+}
+
+void fullPrecisionRanker(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter, int noOfMatches)
+{
+	//add stuff to store output
+	char *output = malloc(sizeof(char)*100);
+	output = " ";
+	char tempout[100];
+	char *nullTerminator = "\0";
+	
+	int rank=1;
+	int varToCheckAtLeastOneMatch = 0;
+	int arrayForOccurencesEachWord[*arrayOfStructsCounter+1];
+
+	int emptyWordCount=0;
+	
+	char *rankHeader = "----------SEARCH RESULTS--------\n";
+	copystringwithoutfree(&output,rankHeader);
+	
+	if(*arrayOfStructsCounter==0)
+	{
+		printf("Error. System has not searched for any words \n");
+	}
+	sortAllSearchedWords(arrayOfStructs,arrayOfStructsCounter);
+	
+	int loopCounter=0;
+	//this loop is used to consecutively check docs between different words (not limited to first word)
+	for(loopCounter=0;loopCounter<*arrayOfStructsCounter;loopCounter++)
+	{
+	struct node* primary = arrayOfStructs[loopCounter]->root;
+	
+	if(strcmp(arrayOfStructs[loopCounter]->wordBeingHashed,"EMPTY")==0)
+		continue;
+
+	//start some form of loop
+		while(primary!=0 && rank<11)
+		{
+			char docNameBeingChecked[50];
+			strncpy(docNameBeingChecked,primary->docName,50);
+			if(strcmp(docNameBeingChecked,"EMPTY")==0)
+			{
+				emptyWordCount++;
+				
+				if(primary->next==0)
+					break;
+			
+				primary=primary->next;
+			}
+			arrayForOccurencesEachWord[loopCounter] = checkIfLinkedListContains(arrayOfStructs[loopCounter]->root, docNameBeingChecked);
+			int i=loopCounter+1;
+			int points=0;
+			int indicatorOfMatch[*arrayOfStructsCounter];
+			memset(indicatorOfMatch, 0,*arrayOfStructsCounter);
+			
+			while(i<*arrayOfStructsCounter)
+			{
+				if(strcmp(arrayOfStructs[i]->wordBeingHashed,"EMPTY")==0)
+				{
+					i++;
+					continue;
+				}
+				arrayForOccurencesEachWord[i] = checkIfLinkedListContains(arrayOfStructs[i]->root, docNameBeingChecked);
+				if(arrayForOccurencesEachWord[i]!=0)
+				{
+					points++;
+					indicatorOfMatch[i]=1;
+				}
+				i++;
+			}
+			
+			if(points>=noOfMatches)
+			{
+				//this should show that array of N words have one common docName
+				varToCheckAtLeastOneMatch++;
+				// printf("Rank %d :\n",rank);
+				sprintf(tempout,"Rank %d :\n",rank);
+				copystring(&output,tempout);
+				sprintf(tempout,"%s matches the following words being searched \n",docNameBeingChecked);
+				copystring(&output,tempout);
+				sprintf(tempout,"%s || %d \n",arrayOfStructs[loopCounter]->wordBeingHashed,arrayForOccurencesEachWord[loopCounter]);
+				copystring(&output,tempout);
+				int j=loopCounter;
+				
+				while(j<*arrayOfStructsCounter)
+				{
+					if(indicatorOfMatch[j]!=1)
+					{
+						j++;
+						continue;
+					}
+					sprintf(tempout,"%s || %d \n",arrayOfStructs[j]->wordBeingHashed,arrayForOccurencesEachWord[j]);
+					copystring(&output,tempout);
+					j++;
+				}
+				rank++;
+			}		
+			
+			if(primary->next==0)
+				break;
+			
+			primary=primary->next;
+		}
+	}
+	//end of for loop
+	if(varToCheckAtLeastOneMatch==0)
+	{
+		//what to do if none of the docs matches enough for the points
+		if(emptyWordCount==*arrayOfStructsCounter-1)
+		{
+			sprintf(tempout,"No document matches for any of these words\n");
+			copystring(&output,tempout);
+			copystring(&output,nullTerminator);
+			*finalOutput = output;
+		}
+		else if(noOfMatches<=2)
+		{
+			//TODO
+			//add code to print best doc for each word
+			sprintf(tempout,"No document matches for all these words\n");
+			//new code to show best in rest of the words
+			copystring(&output,tempout);
+			sprintf(tempout,"Printing documents containing maximum occurences for each word\n");
+			copystring(&output,tempout);
+			int j=0;
+			while(j<*arrayOfStructsCounter)
+			{
+				if(strcmp(arrayOfStructs[j]->wordBeingHashed,"EMPTY")!=0)
+				{
+				sprintf(tempout,"Word : %s\n Doc Name : %s\n Count : %d\n\n",arrayOfStructs[j]->wordBeingHashed,arrayOfStructs[j]->root->docName,arrayOfStructs[j]->root->noOfOccurences);
+				copystring(&output,tempout);
+				}
+				j++;
+			}
+		}
+		fullPrecisionRanker(finalOutput, arrayOfStructs, arrayOfStructsCounter, noOfMatches-1);
+	}
+	else
+	{
+		copystring(&output,nullTerminator);
+		*finalOutput = output;
+	}
 }
 
 void hashWordFromString(char string[])
@@ -893,23 +1153,23 @@ main()
 	{
 		printf("Hashing file failed \n");
 	}
-	globalHashIterate();
+	//globalHashIterate();
 	//findWordInHash("Duis");
     // findWordInHash("Droid");
 	// findMultipleWordsInHash(4);
-	//char blah[] = "we the people jamunda\n";
-	//char *result;
+	char blah[] = "jamunda egypt\n";
+	//char blah[] = "the people\n";
+	char *result;
+	findMultipleWordsInHashWithSTRTOK(blah,&result);
 	//findMultipleWordsInHashWithSTRTOK(blah,&result);
-	//printf("%s \n",result);
+	printf("Result is: \n %s \n",result);
 	//initializeConversionHashToString();
 	
-	printf("Freeing \n");
-	freeGlobalHash();
-	printf("Printing \n");
-	globalHashIterate();
-
-	
-	*/
+	//printf("Freeing \n");
+	//freeGlobalHash();
+	//printf("Printing \n");
+	//globalHashIterate();
+*/
 	
 	
 	//code used to get global hash word by word
