@@ -26,6 +26,7 @@ void freeGlobalHash();
 int hashFile(char fileName[]);
 int checkIfLinkedListContains(struct node* root, char docNameToCheck[]);
 void findWordInHash(char c[],struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
+//void findMultipleWordsInHash(int numberOfWords);
 void findMultipleWordsInHashWithSTRTOK(char string[], char **finalOutput);
 void computeDocNameIntersection();
 void computeDocNameIntersectionWithCharStar(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
@@ -33,7 +34,11 @@ void hashWordFromString(char string[]);
 void initializeConversionGlobalHashToString();
 void convertGlobalHashIntoString(char **);
 void initializeConversionLocalHashToString();
+//char * convertLocalHashIntoString(char fileName[]);
 void convertLocalHashIntoString(char fileName[], char **dest2);
 void sortAllSearchedWords(struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
+// void findMultipleWordsInHashNewRanker(char string[], char **finalOutput);
+void computeRank(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter);
+void fullPrecisionRanker(char **finalOutput, struct my_struct *arrayOfStructs[],int *arrayOfStructsCounter, int noOfMatches);
 
 #endif // INDEXANDHASHING_H_
