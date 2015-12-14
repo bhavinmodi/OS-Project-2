@@ -745,9 +745,23 @@ void computeRank(char **finalOutput, struct my_struct *arrayOfStructs[],int *arr
 	sortAllSearchedWords(arrayOfStructs,arrayOfStructsCounter);
 	
 	int initialValue=0;
-	while(strcmp((arrayOfStructs[initialValue]->wordBeingHashed),"EMPTY")==0)
+	/*
+	while((strcmp((arrayOfStructs[initialValue]->wordBeingHashed),"EMPTY")==0)&&(initialValue<*arrayOfStructsCounter))
 	{
 		initialValue++;
+	}
+	*/
+	
+	while(initialValue<*arrayOfStructsCounter)
+	{
+		if(strcmp(arrayOfStructs[initialValue]->wordBeingHashed,"EMPTY")==0)
+		{
+			initialValue++;
+		}
+		else
+		{
+			break;
+		}
 	}
 	
 	struct node* primary;
