@@ -352,7 +352,7 @@ void* deRegisterMenu(void *args)
 	return 0;
 }
 
-char * HashIndexLocker(int op, char *word, char **search, char keywords[], int *port){
+char* HashIndexLocker(int op, char *word, char **search, char keywords[], int *port){
 
 	pthread_mutex_lock(&lock);
 
@@ -1201,6 +1201,17 @@ int searchIndex(int sock, char keywords[]){
 	int portNumber = findFileLoc(requestedFile);
 	if(portNumber < 0){
 		puts("Get Port Number Failed");
+
+		// Let the client know the file he entered was not found
+		if(sendInt(sock, -1) < 0){
+			puts("Failed to send file not found '-1' status to client");
+		}
+		return -1;
+	}
+
+	// Let the user know file was found
+	if(sendInt(sock, 1) < 0){
+		puts("Failed to send file not found '1' status to client");
 		return -1;
 	}
 

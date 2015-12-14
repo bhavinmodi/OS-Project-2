@@ -521,6 +521,18 @@ int waitForSearchResult(int sock){
 		return -1;
 	}
 
+	// Wait for response if the file was found
+	int fileFound;
+	if(readInt(sock, &fileFound) < 0){
+		puts("Receiving file found status from server failed");
+		return -1;
+	}
+
+	if(fileFound < 0){
+		puts("File requested was not found | Please check file name");
+		return 1;
+	}
+
 	// Receive the file size
 	int fileSize = 0;
 	// Get the file size
