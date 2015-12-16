@@ -5,20 +5,25 @@
  *      Author: Bhavin
  */
 
-#include<sys/socket.h>    //socket
-#include<arpa/inet.h> //inet_addr
 #include<stdio.h>
-#include<unistd.h>
-#include<stdlib.h>
-#include<time.h>
+#include<string.h>    //strlen
+#include<stdlib.h>    //strlen
+#include<sys/socket.h>
+#include<arpa/inet.h> //inet_addr
+#include<unistd.h>    //write
+#include<pthread.h> //for threading , link with lpthread
+#include<errno.h>
 #include<sys/types.h>
 #include<sys/stat.h>
-#include<string.h>
+#include<sys/ioctl.h>
+#include<netinet/in.h>
+#include<net/if.h>
+#include<netdb.h> //hostent
 #include<dirent.h>
 #include<libgen.h>
 
 // Server Directory address
-#define ServerDirectoryIP "127.0.0.1"
+#define ServerDirectoryIP "antimony.cs.pitt.edu"
 #define ServerDirectoryPort 8001
 
 int sendAck(int sock)
@@ -140,6 +145,31 @@ int readString(int sock, int a, char *b){
 	return 1;
 }
 
+int hostname_to_ip(char * hostname , char* ip)
+{
+    struct hostent *he;
+    struct in_addr **addr_list;
+    int i;
+         
+    if ( (he = gethostbyname( hostname ) ) == NULL) 
+    {
+        // get the host info
+        herror("gethostbyname");
+        return 1;
+    }
+ 
+    addr_list = (struct in_addr **) he->h_addr_list;
+     
+    for(i = 0; addr_list[i] != NULL; i++) 
+    {
+        //Return the first one;
+        strcpy(ip , inet_ntoa(*addr_list[i]) );
+        return 0;
+    }
+     
+    return 1;
+}
+
 int getServerFromDirectory(int *ip, int *port){
 
 		//Initialize variables
@@ -156,7 +186,10 @@ int getServerFromDirectory(int *ip, int *port){
 	    puts("Socket created");
 
 		//Connect to Directory Register and get ip and port for service
-		server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
+		char iptemp[100];
+		hostname_to_ip(ServerDirectoryIP, iptemp);
+	
+		server.sin_addr.s_addr = inet_addr(iptemp);
 	    server.sin_family = AF_INET;
 	    server.sin_port = htons(ServerDirectoryPort);
 
@@ -241,7 +274,10 @@ int informDirectoryServerMaybeAbsent(){
 	puts("Socket created");
 
 	//Connect to Directory Register and get ip and port for service
-	server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
+	char iptemp[100];
+	hostname_to_ip(ServerDirectoryIP, iptemp);
+		
+	server.sin_addr.s_addr = inet_addr(iptemp);
 	server.sin_family = AF_INET;
 	server.sin_port = htons(ServerDirectoryPort);
 
@@ -340,7 +376,7 @@ int sendFileToServer(int sock, char path[100], char fileName[100]){
 	char wholePath[200];
 
 	strcpy(wholePath, path);
-	strcat(wholePath, "\\");
+	strcat(wholePath, "/");
 	strcat(wholePath, fileName);
 
 	printf("Whole File Path = %s\n",wholePath);

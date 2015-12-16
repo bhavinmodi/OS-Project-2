@@ -6,21 +6,27 @@
  *      Author: Bhavin
  */
 
-#include<sys/socket.h>
-#include<arpa/inet.h>
-#include<unistd.h>
-#include<pthread.h>
-#include<stdlib.h>
 #include<stdio.h>
-#include<string.h>
+#include<string.h>    //strlen
+#include<stdlib.h>    //strlen
+#include<sys/socket.h>
+#include<arpa/inet.h> //inet_addr
+#include<unistd.h>    //write
+#include<pthread.h> //for threading , link with lpthread
 #include<errno.h>
+#include<sys/types.h>
+#include<sys/stat.h>
+#include<sys/ioctl.h>
+#include<netinet/in.h>
+#include<net/if.h>
+#include<netdb.h> //hostent
 
 // Worker Directory address
-#define WorkerDirectoryIP "127.0.0.1"
+#define WorkerDirectoryIP "arsenic.cs.pitt.edu"
 #define WorkerDirectoryPort 8002
 
 // Client Server Directory address
-#define ServerDirectoryIP "127.0.0.1"
+#define ServerDirectoryIP "antimony.cs.pitt.edu"
 #define ServerDirectoryPort 8001
 
 // For mutex
@@ -120,6 +126,54 @@ int sendInt(int sock, int a){
 			}
 		}
 	}
+}
+
+int sendString(int sock, int a, char *b){
+	int statusOfSend, ackValue=1, statusOfAck;
+	statusOfSend = send(sock , b , sizeof(char)*a , 0);
+	if(statusOfSend < 0){
+		puts("Send Failed");
+		return -1;
+	}
+	while(1){
+		statusOfAck = recv(sock , &ackValue , sizeof(int),0);
+		if(statusOfAck < 0){
+			puts("Send Failed");
+			return -1;
+		}else{
+			if(ackValue == 1){
+				return 1;
+			}else{
+				puts("Send Failed");
+				return -1;
+			}
+		}
+	}
+}
+
+int hostname_to_ip(char * hostname , char* ip)
+{
+    struct hostent *he;
+    struct in_addr **addr_list;
+    int i;
+         
+    if ( (he = gethostbyname( hostname ) ) == NULL) 
+    {
+        // get the host info
+        herror("gethostbyname");
+        return 1;
+    }
+ 
+    addr_list = (struct in_addr **) he->h_addr_list;
+     
+    for(i = 0; addr_list[i] != NULL; i++) 
+    {
+        //Return the first one;
+        strcpy(ip , inet_ntoa(*addr_list[i]) );
+        return 0;
+    }
+     
+    return 1;
 }
 
 int addToList(int ipArr[], int port){
@@ -253,6 +307,24 @@ int scanListWorkerDR(int ipArr[], int port){
 	}
 }
 
+int* scanListworkerIP(int port){
+
+	struct workerNode *ptr = head;
+	
+	while(ptr != NULL){
+
+		//Check match for port
+		if(ptr->port == port){
+			return &ptr->ip[0];
+		}
+
+		ptr = ptr->next;
+	}
+
+	return NULL;
+
+}
+
 struct workerNode* scanListWorker(){
 
 	int minLoad = -1;
@@ -349,8 +421,12 @@ int getServerFromDirectory(int *ip, int *port){
 	    puts("Socket created");
 
 		//Connect to Directory Register and get ip and port for service
+		char addressFromHost[100];
+	
+		hostname_to_ip(ServerDirectoryIP, addressFromHost);
+	
 	    serverDirectory.sin_family = AF_INET;
-	    serverDirectory.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
+	    serverDirectory.sin_addr.s_addr = inet_addr(addressFromHost);
 	    serverDirectory.sin_port = htons(ServerDirectoryPort);
 
 		//Connect to Directory Service
@@ -863,6 +939,20 @@ int sendAllWorkersToServer(int sock){
 	return 1;
 }
 
+void sendIPToServer(int sock){
+	
+	int port;
+	int *p;
+	
+	readInt(sock, &port);
+	
+	p = scanListworkerIP(port);
+	char str[100];
+	sprintf(str, "%d.%d.%d.%d", *p,*(p+1),*(p+2),*(p+3));
+	
+	sendString(sock, 100, &str[0]);
+}
+
 /*
  * This will handle connection for each server/worker
  * */
@@ -916,6 +1006,10 @@ void *connection_handler(void *args)
 			if(locker(4, NULL, 0, sock) < 0){
 				puts("Rebuild Failed");
 			}
+			break;
+		case 3:
+			puts("get ip from worker");
+			sendIPToServer(sock);
 			break;
 		default:
 			//Invalid Value
@@ -980,7 +1074,7 @@ int main(){
 
     //Prepare the sockaddr_in structure
     directory.sin_family = AF_INET;
-    directory.sin_addr.s_addr = inet_addr(WorkerDirectoryIP);
+    directory.sin_addr.s_addr = INADDR_ANY;
     directory.sin_port = htons(WorkerDirectoryPort);
 
     //Bind

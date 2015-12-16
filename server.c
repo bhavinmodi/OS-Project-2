@@ -20,17 +20,18 @@
 #include<sys/ioctl.h>
 #include<netinet/in.h>
 #include<net/if.h>
+#include<netdb.h> //hostent
 
 // Server Directory address
-#define ServerDirectoryIP "127.0.0.1"
+#define ServerDirectoryIP "antimony.cs.pitt.edu"
 #define ServerDirectoryPort 8001
 
 // Worker Directory address
-#define WorkerDirectoryIP "127.0.0.1"
+#define WorkerDirectoryIP "arsenic.cs.pitt.edu"
 #define WorkerDirectoryPort 8002
 
 // server address for client
-#define ServerIP "127.0.0.1"
+#define ServerIP "hydrogen.cs.pitt.edu"
 #define ServerPort 8011
 
 // MUTEX LOCK ON INDEX
@@ -80,6 +81,31 @@ int sendAck(int sock)
 		puts("Ack Send Failed");
 		return -1;
 	}
+}
+
+int hostname_to_ip(char * hostname , char* ip)
+{
+    struct hostent *he;
+    struct in_addr **addr_list;
+    int i;
+         
+    if ( (he = gethostbyname( hostname ) ) == NULL) 
+    {
+        // get the host info
+        herror("gethostbyname");
+        return 1;
+    }
+ 
+    addr_list = (struct in_addr **) he->h_addr_list;
+     
+    for(i = 0; addr_list[i] != NULL; i++) 
+    {
+        //Return the first one;
+        strcpy(ip , inet_ntoa(*addr_list[i]) );
+        return 0;
+    }
+     
+    return 1;
 }
 
 int sendInt(int sock, int a){
@@ -179,9 +205,12 @@ int registerWithDirService()
 	puts("Socket created");
 
 	//below should contain the ip address of the Directory Service
+	char ip[100];
+	hostname_to_ip(ServerDirectoryIP, ip);
+	
 	struct sockaddr_in server;
 	server.sin_family = AF_INET;
-	server.sin_addr.s_addr = inet_addr(ServerDirectoryIP);
+	server.sin_addr.s_addr = inet_addr(ip);
 	server.sin_port = htons(ServerDirectoryPort);
 
 	//Connect to Directory
@@ -631,7 +660,10 @@ int connectToWorkerDirectory(){
 	puts("Socket created");
 
 	// Connect to Worker Directory Register and get ip and port for service
-	server.sin_addr.s_addr = inet_addr(WorkerDirectoryIP);
+	char ip[100];
+	
+	hostname_to_ip(WorkerDirectoryIP, ip);
+	server.sin_addr.s_addr = inet_addr(ip);
 	server.sin_family = AF_INET;
 	server.sin_port = htons(WorkerDirectoryPort);
 
@@ -973,7 +1005,7 @@ int startIndexing(int sock){
 	return 1;
 }
 
-int requestFileFromWorker(int port, char fileName[]){
+int requestFileFromWorker(char ip[100], int port, char fileName[]){
 	// Connect to the worker
 	struct sockaddr_in worker;
 	int sock;
@@ -987,8 +1019,10 @@ int requestFileFromWorker(int port, char fileName[]){
 
 	puts("Socket created");
 
+	printf("Worker IP = %s\n",ip);
+	
 	//Now setup Worker connection
-	worker.sin_addr.s_addr = inet_addr("127.0.0.1");
+	worker.sin_addr.s_addr = inet_addr(ip);
 	worker.sin_family = AF_INET;
 	worker.sin_port = htons(port);
 	printf("Port it is trying to connect to is %d \n",port);
@@ -1153,6 +1187,15 @@ int sendFileToClient(int sock, char fileName[]){
 	return 1;
 }
 
+int getWorker(int sock, char *ip){
+	
+	sendInt(sock, 3);
+	
+	readString(sock, 100, ip);
+	
+	close(sock);
+}
+
 int searchIndex(int sock, char keywords[]){
 
 	// Search Hash table
@@ -1216,7 +1259,18 @@ int searchIndex(int sock, char keywords[]){
 	}
 
 	// Get Files from worker depending on result of search
-	if(requestFileFromWorker(portNumber, requestedFile) < 0){
+	int wsock = connectToWorkerDirectory();
+	
+	if(wsock < 0){
+		puts("connect to worker directory for searching failed");
+		return -1;
+	}
+	
+	char ip[100];
+	
+	getWorker(wsock, &ip[0]);
+	
+	if(requestFileFromWorker(ip, portNumber, requestedFile) < 0){
 		puts("requestFileFromWorker Failed");
 		return -1;
 	}
@@ -1410,8 +1464,8 @@ int main(int argc , char *argv[])
 
     //Prepare the sockaddr_in structure
     server.sin_family = AF_INET;
-    //server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_addr.s_addr = inet_addr(ServerIP);
+    server.sin_addr.s_addr = INADDR_ANY;
+    //server.sin_addr.s_addr = inet_addr(ServerIP);
     server.sin_port = htons(ServerPort);
 
     //Bind

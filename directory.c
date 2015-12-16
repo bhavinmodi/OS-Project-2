@@ -15,7 +15,7 @@
 #include<string.h>
 
 // Client Server Directory address
-#define directoryIP "127.0.0.1"
+#define directoryIP "antimony.cs.pitt.edu"
 #define directoryPort 8001
 
 // For mutex
@@ -728,7 +728,7 @@ int main(){
 
     //Prepare the sockaddr_in structure
     directory.sin_family = AF_INET;
-    directory.sin_addr.s_addr = inet_addr(directoryIP);
+    directory.sin_addr.s_addr = INADDR_ANY;
     directory.sin_port = htons(directoryPort);
 
     //Bind
