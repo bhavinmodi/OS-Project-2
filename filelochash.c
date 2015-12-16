@@ -8,39 +8,44 @@
 struct filelochash {
     char* fileName;             /* key (string is WITHIN the structure) */
     int portNo;
+	char* ip;
     UT_hash_handle hh;         /* makes this structure hashable */
 };
 
 struct filelochash *s3, *tmp, *hashforfileloc = NULL;
 
 int maxFileNameSize = 50;
+int ipSize = 50;
 
 struct filelochash* createFileLocHash()
 {
 	struct filelochash *dest;
 	dest = (struct filelochash*)malloc(sizeof(struct filelochash));
 	dest->fileName = (char*)malloc(sizeof(char)*maxFileNameSize);
+	dest->ip = (char*)malloc(sizeof(char)*ipSize);
 	return dest;
 }
 
-void hashFileAndPort(char filename[], int portNumber)
+void hashFileAndPort(char filename[], char ip[], int portNumber)
 {
 	HASH_FIND_STR(hashforfileloc, filename, s3);
 	if(s3!=NULL)
 	{
 	s3->portNo = portNumber;
+	strncpy(s3->ip,ip,ipSize);
 	}
 	else
 	{
 	s3 = createFileLocHash();
 	strncpy(s3->fileName,filename,maxFileNameSize);
 	s3->portNo = portNumber;
+	strncpy(s3->ip,ip,ipSize);
 	HASH_ADD_STR( hashforfileloc, fileName, s3 );
 	}
 
 }
 
-int findFileLoc(char fileLocToFind[])
+int findFileLocPort(char fileLocToFind[])
 {
     HASH_FIND_STR(hashforfileloc, fileLocToFind, s3);
     if (s3)
@@ -51,6 +56,20 @@ int findFileLoc(char fileLocToFind[])
     {
     	printf("File Name not found in hash \n");
 		return -1;
+    }
+}
+
+char* findFileLocIP(char fileLocToFind[])
+{
+    HASH_FIND_STR(hashforfileloc, fileLocToFind, s3);
+    if (s3)
+    {
+		return s3->ip;
+    }
+    else
+    {
+    	printf("File Name not found in hash \n");
+		return NULL;
     }
 }
 
@@ -74,6 +93,7 @@ void fileLocHashIterate()
     for(s=hashforfileloc; s != NULL; s=s->hh.next) {
         printf("File is %s :\n",s->fileName);
 		printf("Port is %d :\n",s->portNo);
+		printf("IP is %s :\n",s->ip);
     }
 }
 

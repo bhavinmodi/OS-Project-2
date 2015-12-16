@@ -307,24 +307,6 @@ int scanListWorkerDR(int ipArr[], int port){
 	}
 }
 
-int* scanListworkerIP(int port){
-
-	struct workerNode *ptr = head;
-	
-	while(ptr != NULL){
-
-		//Check match for port
-		if(ptr->port == port){
-			return &ptr->ip[0];
-		}
-
-		ptr = ptr->next;
-	}
-
-	return NULL;
-
-}
-
 struct workerNode* scanListWorker(){
 
 	int minLoad = -1;
@@ -939,20 +921,6 @@ int sendAllWorkersToServer(int sock){
 	return 1;
 }
 
-void sendIPToServer(int sock){
-	
-	int port;
-	int *p;
-	
-	readInt(sock, &port);
-	
-	p = scanListworkerIP(port);
-	char str[100];
-	sprintf(str, "%d.%d.%d.%d", *p,*(p+1),*(p+2),*(p+3));
-	
-	sendString(sock, 100, &str[0]);
-}
-
 /*
  * This will handle connection for each server/worker
  * */
@@ -1006,10 +974,6 @@ void *connection_handler(void *args)
 			if(locker(4, NULL, 0, sock) < 0){
 				puts("Rebuild Failed");
 			}
-			break;
-		case 3:
-			puts("get ip from worker");
-			sendIPToServer(sock);
 			break;
 		default:
 			//Invalid Value

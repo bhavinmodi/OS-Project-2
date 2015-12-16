@@ -403,7 +403,7 @@ char* HashIndexLocker(int op, char *word, char **search, char keywords[], int *p
 		*port = checkIfFileExists(word);
 		break;
 	case 4:
-		hashFileAndPort(word,*port);
+		hashFileAndPort(word, keywords, *port);
 		break;
 	case 5:
 		freeFileLocHash();
@@ -451,7 +451,7 @@ int updateIndex(int sock){
 	return 1;
 }
 
-int rebuild(int sock, int port){
+int rebuild(int sock, int ip[], int port){
 	// Receive all file names from workers
 	char fileName[100];
 	int indicator;
@@ -481,7 +481,9 @@ int rebuild(int sock, int port){
 		}
 
 		// Add the file to a has table table to know which worker got it
-		HashIndexLocker(4, &fileName[0], NULL, NULL, &port);
+		char buffer[50];
+		sprintf(buffer,"%d.%d.%d.%d",ip[0],ip[1],ip[2],ip[3]);
+		HashIndexLocker(4, &fileName[0], NULL, buffer, &port);
 	}
 
 	// Receive index from worker
@@ -549,7 +551,7 @@ int rebuildIndex(){
 		}
 
 		// Ask Worker for Index and all files
-		result = rebuild(Wsock, port);
+		result = rebuild(Wsock, ip, port);
 		if(result < 0){
 			puts("Rebuilding Request for Worker failed");
 			// Close sockets
@@ -825,7 +827,9 @@ int getWorkerFromDirectory(char fileName[100]){
 		}
 
 		// Add the file to a has table table to know which worker got it
-		HashIndexLocker(4, &fileName[0], NULL, NULL, &port);
+		char workerIPAsString[50];
+		sprintf(workerIPAsString,"%d.%d.%d.%d",ip[0],ip[1],ip[2],ip[3]);
+		HashIndexLocker(4, &fileName[0], NULL, workerIPAsString, &port);
 
 		//Successful
 		// Close connection to worker
@@ -1241,7 +1245,7 @@ int searchIndex(int sock, char keywords[]){
 	
 	printf("File Name Received = %s\n",requestedFile);
 
-	int portNumber = findFileLoc(requestedFile);
+	int portNumber = findFileLocPort(requestedFile);
 	if(portNumber < 0){
 		puts("Get Port Number Failed");
 
@@ -1258,18 +1262,11 @@ int searchIndex(int sock, char keywords[]){
 		return -1;
 	}
 
-	// Get Files from worker depending on result of search
-	int wsock = connectToWorkerDirectory();
-	
-	if(wsock < 0){
-		puts("connect to worker directory for searching failed");
-		return -1;
-	}
-	
+	// Get ip
 	char ip[100];
+	strcpy(ip, findFileLocIP(requestedFile));
 	
-	getWorker(wsock, &ip[0]);
-	
+	// Get Files from worker depending on result of search
 	if(requestFileFromWorker(ip, portNumber, requestedFile) < 0){
 		puts("requestFileFromWorker Failed");
 		return -1;
